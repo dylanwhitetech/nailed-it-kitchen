@@ -1,6 +1,6 @@
 ---
 name: copilot-author
-description: "Creates and updates Copilot agents, skills and instructions files for this repo. Always searches github/awesome-copilot first, copies and adapts with a Source link, and cites the official GitHub docs."
+description: "Creates and updates Copilot agents, skills, instructions, issue forms, and pull request templates for this repo. Always searches github/awesome-copilot first, copies and adapts with a Source link, and cites the official GitHub docs."
 tools: ["read", "edit", "search", "web", "execute", "github/*"]
 # Why this model: writing good agent prompts needs a strong reasoning/writing model; this runs rarely, so cost is low.
 model: Claude Sonnet 4.5
