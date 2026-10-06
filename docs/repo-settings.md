@@ -36,12 +36,33 @@ changed.
 
 GitHub returned an interaction-limit expiry of `2027-04-06T18:59:05Z`. The
 [`interaction-limit-reminder` workflow](../.github/workflows/interaction-limit-reminder.yml)
-checks monthly and uses the live interaction-limit expiry to open one reminder a
-month before it expires. It grants `administration: read` to read that expiry and
-`issues: write` only to this scheduled/manual reminder job; the repository-wide
-default token permission remains read-only. Close a reminder only after reapplying
-the six-month setting. The renewed limit's expiry automatically moves the next
-reminder date; the first reminder is due 2027-03-06.
+checks monthly on the 6th (15:00 UTC) and can also be dispatched manually. It uses
+the recorded initial set date, **2026-10-06**, to open the first reminder when five
+calendar months have elapsed: **2027-03-06**, one month before the recorded expiry.
+Subsequent reminders become due five calendar months after the latest reminder
+closure date (UTC), clamping the day to the last day of the target month if needed.
+The monthly schedule creates the issue on the first check on or after its due date;
+this can leave less than a month's notice. Run it manually when due if an earlier
+reminder is needed, and renew promptly before the actual expiry. Scheduled runs
+depend on GitHub Actions remaining enabled and may be delayed.
+
+The workflow uses only the built-in `GITHUB_TOKEN` with `issues: write`; all other
+workflow token permissions are disabled, and the repository-wide default remains
+read-only. It does **not** call the interaction-limit endpoint or need an
+Administration-capable App/token (`administration` is not a supported workflow
+permission). It lists all issue pages directly rather than relying on search
+indexing, ignores PRs, and leaves any existing open reminder alone. If a run fails,
+rerun it: an issue already created will suppress another reminder.
+
+Close a reminder **only after reapplying the six-month setting, on the same UTC
+date**. Keep its exact title, `Renew repository interaction limit`, and do not
+delete it; its closure timestamp records the renewal date. This is a recorded-date
+reminder, not live renewal/expiry tracking: early closure, renaming, or deletion
+breaks that record. If renewal happens outside this reminder process, update this
+document's initial set date and the workflow's `initial_set_date`; existing later
+closure dates still take precedence. Reopen a mistakenly closed reminder until
+renewal is complete. Missed checks recover on the next run without skipping an
+overdue reminder.
 
 ## Pending administrator actions
 
