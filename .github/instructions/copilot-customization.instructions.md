@@ -30,6 +30,13 @@ These rules apply whenever you create or edit an agent, skill or instructions fi
 - Keep the agent prompt under 30,000 characters. Keep instructions short; long dev-only
   files should set `excludeAgent: "code-review"` so the reviewer doesn't load them.
 - Use kebab-case file names. Prefix repo-specific agents with `naileditkitchen-`.
+- State agent scope, priorities, constraints, and why non-default invocation/tool settings
+  are used. `infer` is retired; prefer `disable-model-invocation` and `user-invocable`.
+  If retaining `infer` for an explicit compatibility request, document its legacy status
+  and that `disable-model-invocation` takes precedence.
+- Keep skills task-focused, with clear triggers, repeatable repo-accurate steps, expected
+  output, and relevant gotchas. Tool allowlists do not install tools or bypass approvals;
+  distinguish portable aliases from host-specific tools.
 
 ## Checklist
 
