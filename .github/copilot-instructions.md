@@ -10,8 +10,11 @@ Nailed It Kitchen is a recipe app for the adulting millennial, served at
 Recipes are displayed as a "Cooking for Engineers" style **grid** (ingredients on the
 left, actions combining them to the right).
 
-Status: **planning complete, application code not started.** Work is tracked as
-GitHub issues `[S00]`–`[S42]`, in order. Start at the pinned `[S00] Getting started roadmap` issue.
+Status: **planning complete, application code not started.** Work is tracked in GitHub issues and
+navigated from the pinned `[S00] Getting started roadmap` issue. Legacy `[Sxx]` IDs and phase labels
+are navigation, not a serial execution order; use actual issue prerequisites and native
+dependencies, and work in parallel when there is no dependency. Issues #30/#31 (legacy `[S29]`/
+`[S30]`) are v0 foundation work before first deploy.
 
 ## Stack (decided, do not change without an issue)
 
@@ -59,23 +62,27 @@ observability/   Grafana dashboards
 
 ## Copilot customization rules (sourcing rule)
 
-When creating or changing an agent, skill or instructions file:
+When creating or changing an agent, skill, instructions file, or issue/PR template:
 
 1. Follow the official GitHub docs and list them under `## References` in the file.
 2. Search [github/awesome-copilot](https://github.com/github/awesome-copilot) first. If something
    fits, copy and adapt it, and keep a `Source:` link to the upstream file (MIT, keep attribution).
    Only write from scratch if nothing fits, and say so in the PR.
-3. Use the `copilot-author` agent for this work. Details: `.github/instructions/copilot-customization.instructions.md`.
+3. Use the `copilot-author` agent for agents, skills, instructions, and issue/PR template changes.
+   Product research about AI (including browser AI) is not automatically repository customization.
+   If product work includes a repository template/customization change, involve `copilot-author` and
+   state any human completion gate separately. Details:
+   `.github/instructions/copilot-customization.instructions.md`.
 
 ## Agents and skills
 
 | Name | Type | Use it for |
 |------|------|-----------|
 | `naileditkitchen-dev` | agent | Default for all development work |
-| `copilot-author` | agent | Creating or updating agents, skills, instructions |
+| `copilot-author` | agent | Creating or updating agents, skills, instructions, issue forms, and PR templates |
 | `naileditkitchen-code-review` | agent | Local review before you push (cheap pinned model) |
 | `naileditkitchen-k3s-ops` | agent | Read-only cluster triage for the app (local only, needs kubeconfig) |
-| `gh-issue-drafter` | skill | Drafting and opening issues with our templates, labels, epics, dependencies |
+| `gh-issue-drafter` | skill | Drafting issues from the target repo's actual forms and reconciling labels, dependencies, epics, and Project fields |
 | `gh-pr-drafter` | skill | Drafting and opening PRs with our template and conventions |
 
 Planned (as issues): `local-preflight` skill (S16), `recipe-grid-author` skill (S18).

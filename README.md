@@ -6,15 +6,18 @@ A recipe app for the adulting millennial. Recipes are shown as an easy-to-read *
 
 **URL:** https://naileditkitchen.dylanlabs.dev (not live yet)
 
-> **Status:** planning is done and application code has not started. All work is tracked as GitHub issues,
-> in order. Start with the pinned **`[S00] Getting started roadmap`** issue.
+> **Status:** planning is done and application code has not started. Work is tracked in GitHub issues;
+> use the pinned **`[S00] Getting started roadmap`** as navigation, not as a mandatory serial queue.
+> Follow actual prerequisites and native issue dependencies; safe parallel work is encouraged.
+> Issues #30/#31 (legacy `[S29]`/`[S30]`) are v0 foundation work before first deploy.
 
 ## Team
 
 - [@dylanwhitetech](https://github.com/dylanwhitetech)
 - [@ArthurW2](https://github.com/ArthurW2), Principal Engineer (frontend)
 
-Both of us own the whole repo (see `CODEOWNERS`). Issues are unassigned; pick the next one in the roadmap.
+Both of us own the whole repo (see `CODEOWNERS`). Issues are unassigned; pick any ready issue whose
+actual prerequisites are complete.
 
 > **Contributions:** this repo is public but does not accept outside issues or PRs.
 > Submit recipes and feedback **through the app**.
@@ -100,10 +103,10 @@ the Copilot CLI and the Copilot cloud agent on GitHub.
 | `.github/copilot-instructions.md` | Main rules for Copilot (source of truth). `AGENTS.md` points to it. |
 | `.github/instructions/*.instructions.md` | Extra rules for certain paths (e.g. code review, Copilot files). |
 | `.github/agents/naileditkitchen-dev.agent.md` | **Main developer agent.** Use it for almost everything. |
-| `.github/agents/copilot-author.agent.md` | Writes new agents/skills/instructions from awesome-copilot + official docs. |
+| `.github/agents/copilot-author.agent.md` | Writes agents/skills/instructions and issue/PR templates from awesome-copilot + official docs. |
 | `.github/agents/naileditkitchen-code-review.agent.md` | Quick, cheap local review before you push. |
 | `.github/agents/naileditkitchen-k3s-ops.agent.md` | Read-only cluster triage (needs a kubeconfig, local only). |
-| `.github/skills/gh-issue-drafter/` | Opens issues the right way (templates, labels, epics, dependencies). |
+| `.github/skills/gh-issue-drafter/` | Drafts from the target repo's actual issue form and reconciles labels, epics, dependencies, and Project fields. |
 | `.github/skills/gh-pr-drafter/` | Opens PRs the right way (template, Conventional Commits). |
 
 **New to agentic work? Try this:**

@@ -3,6 +3,7 @@ description: Report a defect in the backend, frontend, recipes, chart, or local 
 title: "[Bug]: "
 labels:
   - bug
+  - type:chore
 body:
   - type: textarea
     id: summary

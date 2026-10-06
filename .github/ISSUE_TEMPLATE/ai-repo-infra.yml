@@ -2,8 +2,8 @@ name: AI repo infra
 description: Request or track changes to Copilot instructions, skills, agents, templates, or related governance.
 title: "[AI Infra]: "
 labels:
-  - ai
-  - documentation
+  - type:chore
+  - area:copilot
 body:
   - type: textarea
     id: goal
