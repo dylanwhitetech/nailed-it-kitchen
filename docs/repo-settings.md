@@ -49,7 +49,6 @@ These settings are **not represented as applied** here:
 
 | Area | Required action | Status |
 | --- | --- | --- |
-| Issues | Settings → General → Features → Issues → set **Creation allowed by** to **Collaborators only** | Pending UI action |
 | Copilot content exclusion | Add `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and the repository's generated-file paths under Settings → Copilot → Content exclusion; verify repository/plan eligibility | Pending UI action and eligibility check |
 | Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
 
