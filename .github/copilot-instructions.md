@@ -62,12 +62,16 @@ observability/   Grafana dashboards
 
 ## Copilot customization rules (sourcing rule)
 
-When creating or changing an agent, skill, instructions file, or issue/PR template:
+When creating or changing a Copilot agent, skill, instruction file, issue form, or PR template:
 
-1. Follow the official GitHub docs and list them under `## References` in the file.
+1. Follow the relevant official GitHub docs. Agent, skill, and instruction files must list them
+   under `## References` in the file. For issue forms and PR templates, cite the docs in the
+   authoring instructions or PR description; do not add a `## References` section to the user-facing
+   template.
 2. Search [github/awesome-copilot](https://github.com/github/awesome-copilot) first. If something
-   fits, copy and adapt it, and keep a `Source:` link to the upstream file (MIT, keep attribution).
-   Only write from scratch if nothing fits, and say so in the PR.
+   fits, copy and adapt it, and keep a `Source:` link to the upstream file in prose customization
+   files. For issue forms and PR templates, preserve attribution in the authoring instructions or PR
+   description instead. Only write from scratch if nothing fits, and say so in the PR.
 3. Use the `copilot-author` agent for agents, skills, instructions, and issue/PR template changes.
    Product research about AI (including browser AI) is not automatically repository customization.
    If product work includes a repository template/customization change, involve `copilot-author` and
