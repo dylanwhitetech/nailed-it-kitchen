@@ -1,0 +1,76 @@
+name: Interaction limit renewal reminder
+
+on:
+  schedule:
+    - cron: "0 15 6 * *"
+  workflow_dispatch:
+
+permissions:
+  administration: read
+  issues: write
+
+concurrency:
+  group: interaction-limit-renewal
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create a renewal reminder when due
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          command -v gh >/dev/null || { echo "GitHub CLI (gh) is required." >&2; exit 1; }
+          command -v python3 >/dev/null || { echo "Python 3 is required." >&2; exit 1; }
+
+          interaction_limit="$(gh api "repos/$GH_REPO/interaction-limits")"
+          limit="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("limit", ""))' <<< "$interaction_limit")"
+          expires_at="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("expires_at", ""))' <<< "$interaction_limit")"
+          if [[ "$limit" != "collaborators_only" || -z "$expires_at" ]]; then
+            echo "Could not verify an active collaborators-only interaction limit and expiry." >&2
+            exit 1
+          fi
+
+          due_date="$(python3 - "$expires_at" <<'PY'
+          from calendar import monthrange
+          from datetime import date, datetime
+          import sys
+
+          expires = datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).date()
+          year, month = expires.year, expires.month - 1
+          if month == 0:
+              year, month = year - 1, 12
+          print(date(year, month, min(expires.day, monthrange(year, month)[1])))
+          PY
+          )"
+          today="$(python3 -c 'from datetime import datetime, timezone; print(datetime.now(timezone.utc).date())')"
+
+          latest_reminder="$(gh issue list \
+            --repo "$GH_REPO" \
+            --state all \
+            --search 'in:title "Renew repository interaction limit" sort:created-desc' \
+            --limit 1 \
+            --json state \
+            --jq '.[0] // {}')"
+
+          reminder_state="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("state", ""))' <<< "$latest_reminder")"
+          if [[ "$reminder_state" == "OPEN" ]]; then
+            echo "A renewal reminder is already open."
+            exit 0
+          fi
+
+          if [[ "$today" < "$due_date" ]]; then
+            echo "Next renewal reminder is due on $due_date."
+            exit 0
+          fi
+
+          gh issue create \
+            --repo "$GH_REPO" \
+            --title "Renew repository interaction limit" \
+            --body "The six-month collaborators-only interaction limit needs renewal. Reapply the setting under repository Settings > Moderation options > Interaction limits, then close this reminder. The workflow reads the renewed expiry to schedule the next reminder."
