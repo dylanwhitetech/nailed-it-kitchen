@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Submit a recipe or send feedback
+    url: https://naileditkitchen.dylanlabs.dev
+    about: This repo does not accept outside issues or PRs. Please use the app to submit recipes and feedback.
+  - name: Awesome Copilot catalog
+    url: https://github.com/github/awesome-copilot
+    about: Check for existing agent and skill templates before requesting new AI customization work.
