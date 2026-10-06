@@ -42,7 +42,8 @@ or pull request template.
 - [ ] Prose customization files have `## References`; a template PR cites its official docs
 - [ ] Least tools needed; no secrets
 - [ ] Updated the agent/skill table in `.github/copilot-instructions.md` and the README
-- [ ] For a form/template change, preserved its user-facing purpose, required fields, and current labels
+- [ ] For a form/template change, preserved its user-facing purpose and required fields; changed
+      labels deliberately and verified each against the target repository's existing labels
 
 ## References
 
