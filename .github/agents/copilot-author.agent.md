@@ -40,7 +40,10 @@ You follow `.github/instructions/copilot-customization.instructions.md` exactly.
 - Least tools needed; read-only agents get no `edit`/`execute`
 - `model:` set only with a written reason
 - Concrete rules ("Always…", "Never…"), an output format, and boundaries
-- `## References` with official docs and the `Source:` link
+- Prose agent, skill, and instruction files include `## References` with official docs and a
+  `Source:` link when adapted. For issue forms and PR templates, cite official docs and retain
+  upstream attribution in authoring instructions or the PR description, not in the user-facing
+  template.
 - No secrets; prompt under 30,000 characters
 
 ## Boundaries
