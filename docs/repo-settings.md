@@ -20,7 +20,7 @@ they can be considered complete.
 | Copilot code review | `review_on_push=false`; `review_draft_pull_requests=false` (skip new-push and draft reviews; automatic reviews run on PR open/ready) | Active ruleset verified |
 | Dependabot | Vulnerability alerts enabled | Applied |
 | Secret scanning | Secret scanning and push protection enabled | Already enabled |
-| GitHub Actions | Default `GITHUB_TOKEN` permissions are read-only; token cannot approve PR reviews; `allowed_actions=all` | Verified; action allowlisting was not requested or changed |
+| GitHub Actions | Default `GITHUB_TOKEN` permissions are read-only; token cannot approve PR reviews; fork PR approval policy is all outside contributors; `allowed_actions=all` | Verified; action allowlisting was not requested or changed |
 
 The active ruleset retains the existing CodeQL alert rule and repository-admin bypass.
 The bypass preserves the repository owner's break-glass access. `CODEOWNERS` names
@@ -29,8 +29,10 @@ eligible to review. No required CI status checks are configured yet; the ruleset
 required-status-check list is intentionally empty until CI is added.
 
 GitHub's repository API readback reports `pull_request_creation_policy=collaborators_only`.
-The Actions permissions endpoint separately reports `allowed_actions=all`; action
-allowlisting was not requested or changed.
+The Actions fork-PR approval endpoint currently reports
+`approval_policy=all_external_contributors`. The Actions permissions endpoint
+separately reports `allowed_actions=all`; action allowlisting was not requested or
+changed.
 
 GitHub returned an interaction-limit expiry of `2027-04-06T18:59:05Z`. The
 [`interaction-limit-reminder` workflow](../.github/workflows/interaction-limit-reminder.yml)
@@ -50,7 +52,6 @@ These settings are **not represented as applied** here:
 | Issues | Settings → General → Features → Issues → set **Creation allowed by** to **Collaborators only** | Pending UI action |
 | Copilot content exclusion | Add `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and the repository's generated-file paths under Settings → Copilot → Content exclusion; verify repository/plan eligibility | Pending UI action and eligibility check |
 | Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
-| Actions fork approval | Settings → Actions → General → require approval for all outside contributors | Pending UI verification; API readbacks conflict |
 
 The collaborator-only issue-creation control is documented in GitHub's 2026
 changelog, including a triage-role exception, but it is not present in the documented
@@ -65,19 +66,16 @@ configuration API returned enabled tools, firewall, and automation settings, but
 does not report whether account policy has enabled Copilot cloud agent access to
 this repository. Verify that access in Settings.
 
-The fork-PR approval API has returned conflicting values during this task: one
-readback returned `all_external_contributors`, while the repository owner reports
-that after a PUT returning 204, a GET still returned
-`first_time_contributors`. Treat the policy as **unverified**, do not attempt to
-change it again through the API, and confirm the required all-outside-contributors
-setting in Settings → Actions → General.
+An earlier fork-PR approval readback conflicted with the repository owner's
+verification. The latest GET now reports `all_external_contributors`, so the
+requested policy is currently verified as applied.
 
 Until these pending UI settings are applied and verified, issue #11 is not complete
 and must not be treated as unblocking #12.
 
 The repository Actions API reports `allowed_actions=all`. This controls which
 Actions may run and is separate from the verified default token permission and
-unverified fork-workflow approval policy; it was not changed by this task.
+fork-workflow approval policy; it was not changed by this task.
 
 The ruleset export includes GitHub-generated ruleset and bypass-actor identifiers.
 They are non-secret metadata; the admin-role bypass is retained intentionally so the
