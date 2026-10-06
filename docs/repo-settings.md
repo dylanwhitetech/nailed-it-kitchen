@@ -2,8 +2,8 @@
 
 This document records the repository settings for `dylanwhitetech/nailed-it-kitchen`.
 Settings marked **Applied** were read back from GitHub after configuration on 2026-10-06.
-Settings marked **Pending** are available in GitHub but could not be applied or verified
-through the documented repository API; they require an administrator to use the web UI.
+Settings marked **Pending** need an administrator UI action or confirmation before
+they can be considered complete.
 
 ## Applied settings
 
@@ -11,6 +11,8 @@ through the documented repository API; they require an administrator to use the 
 | --- | --- | --- |
 | Repository features | Wiki and Projects disabled | Applied |
 | Repository features | Discussions disabled | Already disabled |
+| Issue creation | Collaborators only | Pending; setting has no documented repository REST API field |
+| Pull-request creation | Collaborators only | Applied and read back via `pull_request_creation_policy` |
 | Interaction limits | Collaborators only, six months | Applied; expires 2027-04-06 |
 | `main` ruleset | Active, targets `refs/heads/main` only | Applied; exported to [`.github/rulesets/main.json`](../.github/rulesets/main.json) |
 | Pull requests | Require one approval, CODEOWNERS review, and dismiss stale approvals on new pushes | Applied |
@@ -26,6 +28,10 @@ The bypass preserves the repository owner's break-glass access. `CODEOWNERS` nam
 eligible to review. No required CI status checks are configured yet; the ruleset's
 required-status-check list is intentionally empty until CI is added.
 
+GitHub's repository API readback reports `pull_request_creation_policy=collaborators_only`.
+The Actions permissions endpoint separately reports `allowed_actions=all`; action
+allowlisting was not requested or changed.
+
 GitHub returned an interaction-limit expiry of `2027-04-06T18:59:05Z`. The
 [`interaction-limit-reminder` workflow](../.github/workflows/interaction-limit-reminder.yml)
 checks monthly and uses the live interaction-limit expiry to open one reminder a
@@ -37,34 +43,41 @@ reminder date; the first reminder is due 2027-03-06.
 
 ## Pending administrator actions
 
-These settings are supported by GitHub's web UI, but no documented repository REST
-API control was available to set/read them in this run. They are **not represented as
-applied** here:
+These settings are **not represented as applied** here:
 
 | Area | Required action | Status |
 | --- | --- | --- |
 | Issues | Settings → General → Features → Issues → set **Creation allowed by** to **Collaborators only** | Pending UI action |
-| Pull requests | Settings → General → Features → Pull requests → set **Creation allowed by** to **Collaborators only** | Pending UI action |
 | Copilot content exclusion | Add `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and the repository's generated-file paths under Settings → Copilot → Content exclusion; verify repository/plan eligibility | Pending UI action and eligibility check |
-| Copilot cloud agent | Enable repository access under Settings → Copilot → Cloud agent, subject to the account/organization policy | Pending UI action and policy check |
-| Actions fork approval | Set workflow approval to require approval for all outside contributors under Settings → Actions → General | Pending UI action |
+| Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
+| Actions fork approval | Settings → Actions → General → require approval for all outside contributors | Pending UI verification; API readbacks conflict |
 
-The collaborator-only issue and pull-request controls are documented as repository
-settings in GitHub's 2026 changelog. The issue-creation control has a documented
-triage-role exception; check the resulting UI state and collaborator list when
-applying it. Copilot content exclusion is documented for Copilot Business and
-Enterprise and applies to Copilot code review, but availability and effective
-repository policy were not exposed by the repository API. Copilot cloud-agent
-availability can also depend on organization or enterprise policy. Fork workflow
-approval policy is distinct from the already-verified read-only default token
-permission.
+The collaborator-only issue-creation control is documented in GitHub's 2026
+changelog, including a triage-role exception, but it is not present in the documented
+repository update API schema. Check the UI setting and collaborator list when
+applying it. The repository update API does support the collaborator-only PR
+creation policy, which is now applied. The documented content-exclusion API is
+organization-scoped; this is a personal-user repository, and no per-repository
+content-exclusion API endpoint is documented. Content exclusion is documented for
+Copilot Business and Enterprise and applies to Copilot code review, so verify
+eligibility and effective policy in Settings. The repository cloud-agent
+configuration API returned enabled tools, firewall, and automation settings, but
+does not report whether account policy has enabled Copilot cloud agent access to
+this repository. Verify that access in Settings.
+
+The fork-PR approval API has returned conflicting values during this task: one
+readback returned `all_external_contributors`, while the repository owner reports
+that after a PUT returning 204, a GET still returned
+`first_time_contributors`. Treat the policy as **unverified**, do not attempt to
+change it again through the API, and confirm the required all-outside-contributors
+setting in Settings → Actions → General.
 
 Until these pending UI settings are applied and verified, issue #11 is not complete
 and must not be treated as unblocking #12.
 
-The repository Actions API currently reports `allowed_actions=all`. This controls
-which Actions may run and is separate from the requested default token permission
-and fork-workflow approval policy; it was not changed by this task.
+The repository Actions API reports `allowed_actions=all`. This controls which
+Actions may run and is separate from the verified default token permission and
+unverified fork-workflow approval policy; it was not changed by this task.
 
 The ruleset export includes GitHub-generated ruleset and bypass-actor identifiers.
 They are non-secret metadata; the admin-role bypass is retained intentionally so the
@@ -77,6 +90,9 @@ repository owner can recover from a ruleset lockout.
 - [GitHub REST API: Update a repository ruleset](https://docs.github.com/en/rest/repos/rules#update-a-repository-ruleset)
 - [GitHub REST API: Enable vulnerability alerts](https://docs.github.com/en/rest/dependabot/alerts#enable-dependabot-alerts-for-a-repository)
 - [GitHub REST API: Actions permissions](https://docs.github.com/en/rest/actions/permissions)
+- [GitHub REST API: Fork PR contributor approval policy](https://docs.github.com/en/rest/actions/permissions#get-fork-pr-contributor-approval-permissions-for-a-repository)
+- [GitHub REST API: Copilot cloud agent configuration](https://docs.github.com/en/rest/copilot/copilot-cloud-agent-management#get-copilot-cloud-agent-configuration-for-a-repository)
+- [GitHub REST API: Copilot content exclusion](https://docs.github.com/en/rest/copilot/copilot-content-exclusion)
 - [GitHub Docs: GITHUB_TOKEN permissions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication)
 - [GitHub Docs: Limiting interactions in your repository](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/limiting-interactions-in-your-repository)
 - [GitHub Docs: Managing rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)
