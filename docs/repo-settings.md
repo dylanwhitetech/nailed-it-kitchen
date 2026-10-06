@@ -11,7 +11,7 @@ they can be considered complete.
 | --- | --- | --- |
 | Repository features | Wiki and Projects disabled | Applied |
 | Repository features | Discussions disabled | Already disabled |
-| Issue creation | Collaborators only | Pending; setting has no documented repository REST API field |
+| Issue creation | Collaborators only | Applied; verified via GraphQL `issueCreationPolicy=COLLABORATORS_ONLY` |
 | Pull-request creation | Collaborators only | Applied and read back via `pull_request_creation_policy` |
 | Interaction limits | Collaborators only, six months | Applied; expires 2027-04-06 |
 | `main` ruleset | Active, targets `refs/heads/main` only | Applied; exported to [`.github/rulesets/main.json`](../.github/rulesets/main.json) |
@@ -54,17 +54,17 @@ These settings are **not represented as applied** here:
 | Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
 
 The collaborator-only issue-creation control is documented in GitHub's 2026
-changelog, including a triage-role exception, but it is not present in the documented
-repository update API schema. Check the UI setting and collaborator list when
-applying it. The repository update API does support the collaborator-only PR
-creation policy, which is now applied. The documented content-exclusion API is
-organization-scoped; this is a personal-user repository, and no per-repository
-content-exclusion API endpoint is documented. Content exclusion is documented for
-Copilot Business and Enterprise and applies to Copilot code review, so verify
-eligibility and effective policy in Settings. The repository cloud-agent
-configuration API returned enabled tools, firewall, and automation settings, but
-does not report whether account policy has enabled Copilot cloud agent access to
-this repository. Verify that access in Settings.
+changelog, including a triage-role exception. Its GraphQL readback now confirms
+`COLLABORATORS_ONLY`; the repository update REST schema does not expose this field.
+The repository update API also confirms the collaborator-only PR creation policy.
+The documented content-exclusion API is organization-scoped; this is a
+personal-user repository, and no per-repository content-exclusion API endpoint is
+documented. Content exclusion is documented for Copilot Business and Enterprise and
+applies to Copilot code review, so verify eligibility and effective policy in
+Settings. The repository cloud-agent configuration API returned enabled tools,
+firewall, and automation settings, but does not report whether account policy has
+enabled Copilot cloud agent access to this repository. Verify that access in
+Settings.
 
 An earlier fork-PR approval readback conflicted with the repository owner's
 verification. The latest GET now reports `all_external_contributors`, so the
