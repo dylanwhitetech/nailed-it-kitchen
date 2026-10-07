@@ -102,12 +102,21 @@ the Copilot CLI and the Copilot cloud agent on GitHub.
 |------|--------------|
 | `.github/copilot-instructions.md` | Main rules for Copilot (source of truth). `AGENTS.md` points to it. |
 | `.github/instructions/*.instructions.md` | Extra rules for certain paths (e.g. code review, Copilot files). |
-| `.github/agents/naileditkitchen-dev.agent.md` | **Main developer agent.** Use it for almost everything. |
+| `.github/agents/naileditkitchen-dev.agent.md` | **Manually selected main developer agent.** Expanded research/planning/session tools where the host supports them. |
 | `.github/agents/copilot-author.agent.md` | Writes agents/skills/instructions and issue/PR templates from awesome-copilot + official docs. |
 | `.github/agents/naileditkitchen-code-review.agent.md` | Quick, cheap local review before you push. |
 | `.github/agents/naileditkitchen-k3s-ops.agent.md` | Read-only cluster triage (needs a kubeconfig, local only). |
 | `.github/skills/gh-issue-drafter/` | Drafts from the target repo's actual issue form and reconciles labels, epics, dependencies, and Project fields. |
-| `.github/skills/gh-pr-drafter/` | Opens PRs the right way (template, Conventional Commits). |
+| `.github/skills/gh-pr-drafter/` | Issue-prefixed branch/PR names, Conventional Commit messages, and the PR template. |
+
+The [Copilot instructions](.github/copilot-instructions.md) define our shared engineering
+standards and sourced code-documentation rules: Google-style Python docstrings, TSDoc for
+reusable TypeScript/React APIs, and intentional FastAPI/Helm documentation.
+Branch names and PR titles use `<type>/<issue-number>-<short-hyphenated-description>`
+(e.g. `feat/1234-add-feature-x`), with only `feat`, `fix`, `cicd`, or `chore`.
+Commit messages separately follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+Existing session-managed branches are not renamed. For squash merges, the human merger
+must use a Conventional Commit message rather than the slash-form PR title.
 
 **New to agentic work? Try this:**
 
