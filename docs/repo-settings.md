@@ -64,13 +64,13 @@ closure dates still take precedence. Reopen a mistakenly closed reminder until
 renewal is complete. Missed checks recover on the next run without skipping an
 overdue reminder.
 
-## Pending administrator actions
+## Unsupported controls and pending administrator actions
 
 These settings are **not represented as applied** here:
 
 | Area | Required action | Status |
 | --- | --- | --- |
-| Copilot content exclusion | Add `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and the repository's generated-file paths under Settings → Copilot → Content exclusion; verify repository/plan eligibility | Pending UI action and eligibility check |
+| Copilot custom content exclusion | Requested paths: `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and generated files | Unavailable in the current repository Settings UI, reported by the administrator; follow-up [#57](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/57) |
 | Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
 
 The collaborator-only issue-creation control is documented in GitHub's 2026
@@ -79,9 +79,22 @@ changelog, including a triage-role exception. Its GraphQL readback now confirms
 The repository update API also confirms the collaborator-only PR creation policy.
 The documented content-exclusion API is organization-scoped; this is a
 personal-user repository, and no per-repository content-exclusion API endpoint is
-documented. Content exclusion is documented for Copilot Business and Enterprise and
-applies to Copilot code review, so verify eligibility and effective policy in
-Settings. The repository cloud-agent configuration API returned enabled tools,
+documented. Custom content exclusion is documented for Copilot Business and
+Enterprise and applies to Copilot code review. On 2026-10-06, the administrator
+reported that the Content exclusion menu is absent. Treat this as an unavailable
+control in the current setup, not as a setting still waiting to be saved. The
+account's exact subscription has not been independently verified. Follow-up #57
+tracks the maintainer decision about deferring the requirement or using an eligible
+configuration; no subscription or repository ownership changes were made.
+
+Separately, GitHub's built-in code-review exclusions already include
+`package-lock.json`, `**/*.lock`, and common generated-file locations such as
+`**/generated/**/*` and `**/generated-sources/**/*`. These defaults are not a custom
+policy we configured. They do not establish exclusion of `recipes/*.yaml` or every
+generated file. An instructions file or an invented ignore file is not an
+equivalent enforced exclusion.
+
+The repository cloud-agent configuration API returned enabled tools,
 firewall, and automation settings, but does not report whether account policy has
 enabled Copilot cloud agent access to this repository. Verify that access in
 Settings.
@@ -90,8 +103,9 @@ An earlier fork-PR approval readback conflicted with the repository owner's
 verification. The latest GET now reports `all_external_contributors`, so the
 requested policy is currently verified as applied.
 
-Until these pending UI settings are applied and verified, issue #11 is not complete
-and must not be treated as unblocking #12.
+Issue #11 is not complete and must not be treated as unblocking #12 until the
+remaining cloud-agent access check is resolved and the maintainer accepts a
+disposition for the unavailable custom-exclusion control tracked in #57.
 
 The repository Actions API reports `allowed_actions=all`. This controls which
 Actions may run and is separate from the verified default token permission and
@@ -116,6 +130,8 @@ repository owner can recover from a ruleset lockout.
 - [GitHub Docs: Managing rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)
 - [GitHub Docs: Approving workflow runs from forks](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
 - [GitHub Docs: Excluding content from GitHub Copilot](https://docs.github.com/en/copilot/how-tos/configure-content-exclusion/exclude-content-from-copilot)
+- [GitHub Docs: Content-exclusion plan support](https://docs.github.com/en/copilot/concepts/security-governance-and-network-settings/content-exclusion)
+- [GitHub Docs: Files automatically excluded from code review](https://docs.github.com/en/copilot/reference/review-excluded-files)
 - [GitHub Docs: Adding Copilot cloud agent to your organization](https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-for-organization/add-copilot-cloud-agent)
 - [GitHub Changelog: New repository settings for pull request access](https://github.blog/changelog/2026-02-13-new-repository-settings-for-configuring-pull-request-access/)
 - [GitHub Changelog: Restrict issue creation to collaborators only](https://github.blog/changelog/2026-06-29-restrict-issue-creation-to-collaborators-only/)
