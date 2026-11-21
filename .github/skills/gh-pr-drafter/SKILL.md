@@ -40,6 +40,7 @@ description: "Prepare issue-prefixed branches and PR titles, Conventional Commit
    Mark breaking commits with `!` or a `BREAKING CHANGE:` footer.
 6. **PR body**: fill every section of `.github/PULL_REQUEST_TEMPLATE.md`, including `Closes #N`, the
    validation checklist, deploy impact, and the AI customization checklist (with awesome-copilot sources if relevant).
+   Lead the body's first section with the outcome per the Minto output structure in `.github/copilot-instructions.md`, preserving the template's exact headings.
 7. **Open it** (draft if work is incomplete):
 
    ```sh
@@ -47,7 +48,7 @@ description: "Prepare issue-prefixed branches and PR titles, Conventional Commit
    gh pr create --base main --title "feat/1234-add-feature-x" --body-file pr.md [--draft]
    ```
 
-8. **Report** the PR URL. Copilot code review runs automatically when the PR opens or is marked ready.
+8. **Report** the outcome first, then the PR URL. Copilot code review runs automatically when the PR opens or is marked ready.
 
 ## Release and squash compatibility
 

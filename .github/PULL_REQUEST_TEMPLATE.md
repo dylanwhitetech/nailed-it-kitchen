@@ -1,5 +1,7 @@
 ## Summary
 
+<!-- Lead with the outcome in one or two lines (Minto: answer first), then key points. -->
+
 - 
 
 ## Linked issue

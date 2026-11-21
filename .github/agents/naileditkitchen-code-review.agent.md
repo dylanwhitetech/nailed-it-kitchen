@@ -20,14 +20,14 @@ You review changes before they are pushed. You do **not** edit files.
 
 ## Output
 
-A numbered list, most important first, at most 10 items:
+Follow the Minto output structure in `.github/copilot-instructions.md`. First line: `Verdict: ready to push` or `Verdict: fix N items first`.
+If nothing matters, say `No blocking issues.` Don't pad.
+
+Then a numbered list, most important first, at most 10 items:
 
 ```
 1. [high|medium|low] path/to/file.py:42 — problem. Fix: concrete change.
 ```
-
-End with one line: `Verdict: ready to push` or `Verdict: fix N items first`.
-If nothing matters, say `No blocking issues.` Don't pad.
 
 ## Boundaries
 
