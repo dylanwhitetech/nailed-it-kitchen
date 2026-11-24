@@ -41,6 +41,8 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
 - Keep changes scoped to one concern and reversible. Preserve existing contracts unless
   intentionally changing them; update user/operator docs alongside behavior or workflow changes.
   Update dependencies only in focused security/compatibility work.
+- Official user and operator documentation must not reference specific issues; guidance records
+  and field reports may include them.
 - Add or update the smallest relevant tests for changed behavior; relevant validation must pass.
 - Handle errors explicitly with useful context. Do not mask root causes with broad catch-alls,
   silent failures, or success-shaped fallbacks.
