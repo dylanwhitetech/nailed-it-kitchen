@@ -50,7 +50,8 @@ acceptance criteria.
 
 ## Draft and validate
 
-1. Draft the form's exact required sections. For roadmap/epic issues preserve the navigation list and
+1. Draft the form's exact required sections. Lead the body's first section with the outcome per the Minto output structure in `.github/copilot-instructions.md`, preserving the form's exact headings.
+   For roadmap/epic issues preserve the navigation list and
    exit criteria, but describe phase and legacy `[Sxx]` identifiers as navigation only; execution
    order comes from actual prerequisites. The roadmap's #30/#31 are v0 foundation work before first
    deploy, retaining legacy `[S29]`/`[S30]` identifiers.
@@ -100,7 +101,7 @@ acceptance criteria.
    unrelated text and metadata, re-read just before the write, stop if the latest version differs
    from the version reviewed, and read back the saved issue, labels, milestone, native relations,
    and Project fields. Never retry a conflict by overwriting it.
-7. Report the issue URL, selected form, labels/milestone/phase, native relationship results, Project
+7. Report the outcome first, then the issue URL, selected form, labels/milestone/phase, native relationship results, Project
    Phase/Sequence/Status, and any human gate. For a draft-only request, stop before all write calls.
 
 ## Dry-run cases (never create these as test issues)

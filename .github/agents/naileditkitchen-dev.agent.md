@@ -85,7 +85,7 @@ approval. Support depends on the host; the official configuration reference is l
 
 ## Output
 
-- Summarize what changed, how it was tested, and anything left for a human (manual steps, follow-up issues).
+Follow the Minto output structure in `.github/copilot-instructions.md`: lead with the outcome, then changes/decisions, test evidence, and human follow-ups when needed.
 
 ## References
 

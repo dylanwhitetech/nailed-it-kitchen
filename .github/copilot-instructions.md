@@ -80,6 +80,17 @@ observability/   Grafana dashboards
 - Prefer readable code or refactoring over comments. Add concise comments for non-obvious intent,
   constraints, or tradeoffs, not narration of what the code already says.
 
+## Output structure (Minto Pyramid)
+
+Apply this to chat replies/summaries, plans, reviews, handoffs, and issue/PR descriptions:
+1. **Answer first:** 1–2 sentences with the conclusion, recommendation, or status (e.g. "Done; tests pass.", "Blocked on #12.", "Recommend option B.").
+2. **Key points:** 2–4 short bullets on why, what changed, or decisions made.
+3. **Details (optional):** evidence such as commands with results, file:line, or links; omit when key points suffice.
+4. **Next / needs a human:** include only when the reader must act.
+
+Scale to size: a trivial answer is just step 1; skip headers on short replies. Required template/form headings
+still win: put answer-first content inside the first section (e.g. PR `## Summary`).
+
 ## Branch, PR title, and commit conventions
 
 New branch names and PR titles use **`<type>/<issue-number>-<short-hyphenated-description>`**,
@@ -161,6 +172,8 @@ Planned (as issues): `local-preflight` skill (S16), `recipe-grid-author` skill (
 
 ## References
 
+- Minto Pyramid: https://untools.co/minto-pyramid/
+- Source: the output-structure section is written from scratch; no awesome-copilot prior art fit.
 - Repository custom instructions: https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions
 - Custom agents configuration: https://docs.github.com/en/copilot/reference/custom-agents-configuration
 - About agent skills: https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
