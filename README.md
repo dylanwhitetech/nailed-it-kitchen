@@ -108,6 +108,7 @@ the Copilot CLI and the Copilot cloud agent on GitHub.
 | `.github/agents/naileditkitchen-k3s-ops.agent.md` | Read-only cluster triage (needs a kubeconfig, local only). |
 | `.github/skills/gh-issue-drafter/` | Drafts from the target repo's actual issue form and reconciles labels, epics, dependencies, and Project fields. |
 | `.github/skills/gh-pr-drafter/` | Issue-prefixed branch/PR names, Conventional Commit messages, and the PR template. |
+| `.github/skills/visual-explanation/` | Explains a topic with a concise visual or focused, accessible HTML artifact. |
 
 The [Copilot instructions](.github/copilot-instructions.md) define our shared engineering
 standards and sourced code-documentation rules: Google-style Python docstrings, TSDoc for
