@@ -30,10 +30,15 @@
 - [ ] Helm chart / Flux handoff impact (k3s-infrastructure)
 - [ ] Manual step needed (linked a "codify" issue)
 
+## Guidance
+
+- [ ] No lasting decision changed
+- [ ] Added or updated a `guidance/` record for a changed architecture, stack, deployment, or constraint decision
+
 ## AI customization checklist
 
 - [ ] Not applicable
-- [ ] I updated `AGENTS.md`, `.github/copilot-instructions.md`, or `CONTRIBUTING.md` as needed
+- [ ] I updated `AGENTS.md` and the agent/skill rosters (`AGENTS.md`, README) as needed
 - [ ] I checked `github/awesome-copilot` for prior art before adding a new skill or agent
 - [ ] I noted the upstream `Source:` and the official GitHub docs used for any new agent or skill
 

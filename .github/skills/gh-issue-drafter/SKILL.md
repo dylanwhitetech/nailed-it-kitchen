@@ -38,19 +38,19 @@ the same issue form, labels, milestones, or Project fields.
 |---|---|
 | App feature, developer experience, deployment improvement, or product research (including research about browser AI) | `feature-request.yml`. Product research is not repository customization merely because it concerns AI. |
 | Defect report | `bug-report.yml`; retain the form's bug label and use an existing `type:*` label for the work classification. |
-| Copilot agent, skill, instruction, issue/PR template, or repository AI governance | `ai-repo-infra.yml`. Use `copilot-author` for these customization changes, including template changes embedded in a product issue. |
+| Copilot agent, skill, instruction, issue/PR template, or repository AI governance | `ai-repo-infra.yml`. Follow the `copilot-authoring` skill for these customization changes, including template changes embedded in a product issue. |
 | Epic or roadmap item | Use the target repo's closest form (the feature form in Nailed It Kitchen), preserve its required fields, then add concise navigation and exit criteria. Use native sub-issues for children. |
 | Infrastructure work | Read and use the infrastructure repository's own form and metadata; do not apply the app's form headings. |
 
 If product work also needs a human-only GitHub, cluster, Cloudflare, or other external change, state
 the exact human completion gate and its prerequisite. Keep code work and manual follow-up separable;
 do not call a mixed task fully `Copilot-ready? yes` while a human gate remains. For changes to repo
-templates within a product issue, involve `copilot-author` and preserve the product issue's own
+templates within a product issue, follow the `copilot-authoring` skill and preserve the product issue's own
 acceptance criteria.
 
 ## Draft and validate
 
-1. Draft the form's exact required sections. Lead the body's first section with the outcome per the Minto output structure in `.github/copilot-instructions.md`, preserving the form's exact headings.
+1. Draft the form's exact required sections. Lead the body's first section with the outcome per the Minto output structure in `AGENTS.md`, preserving the form's exact headings.
    For roadmap/epic issues preserve the navigation list and
    exit criteria, but describe phase and legacy `[Sxx]` identifiers as navigation only; execution
    order comes from actual prerequisites. The roadmap's #30/#31 are v0 foundation work before first
@@ -108,7 +108,7 @@ acceptance criteria.
 
 - **App feature:** Use the app's feature form; keep `References or prior art`; choose a matching
   existing `type:*` and `area:*`; leave provenance checks unchecked unless verified.
-- **AI customization:** Use the repo's AI customization form; use `copilot-author`, inspect and
+- **AI customization:** Use the repo's AI customization form; follow the `copilot-authoring` skill, inspect and
   cite awesome-copilot and official docs, and only check provenance boxes for work actually done.
 - **Epic:** Use the closest form, retain required headings, and demonstrate child links/navigation,
   exit criteria, one parent relation, and actual dependency edges without imposing serial phase order.
