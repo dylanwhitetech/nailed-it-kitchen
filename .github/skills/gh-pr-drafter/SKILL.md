@@ -36,11 +36,11 @@ description: "Prepare issue-prefixed branches and PR titles, Conventional Commit
    including its type prefix. If an existing session branch does not conform, leave it
    unchanged and construct a conforming PR title from the linked issue and work category.
    PR titles are not commit messages. Follow the canonical conventions in
-   `.github/copilot-instructions.md`; use `ci` for relevant commits on a `cicd/...` branch.
+   `AGENTS.md`; use `ci` for relevant commits on a `cicd/...` branch.
    Mark breaking commits with `!` or a `BREAKING CHANGE:` footer.
 6. **PR body**: fill every section of `.github/PULL_REQUEST_TEMPLATE.md`, including `Closes #N`, the
    validation checklist, deploy impact, and the AI customization checklist (with awesome-copilot sources if relevant).
-   Lead the body's first section with the outcome per the Minto output structure in `.github/copilot-instructions.md`, preserving the template's exact headings.
+   Lead the body's first section with the outcome per the Minto output structure in `AGENTS.md`, preserving the template's exact headings.
 7. **Open it** (draft if work is incomplete):
 
    ```sh

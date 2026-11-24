@@ -1,9 +1,12 @@
 ---
 applyTo: "**"
-excludeAgent: "coding-agent"
+excludeAgent: "cloud-agent"
 ---
 
 # Code review rules
+
+Source: retained from the repository's
+[prior review instructions](https://github.com/dylanwhitetech/nailed-it-kitchen/blob/67a469c07da5939a28c1b4b04bd2f166e6ae578d/.github/instructions/code-review.instructions.md).
 
 Be brief. Only comment when it matters.
 
@@ -13,7 +16,8 @@ Be brief. Only comment when it matters.
 - Security: secrets, injection, missing input validation, unsafe auth/token handling, missing Turnstile/rate limit on public endpoints
 - Contract breaks: API shape, recipe YAML schema, DB migrations without a downgrade
 - Missing or wrong tests for changed behavior
-- Manual steps that are not codified (see "Codify everything" in `.github/copilot-instructions.md`)
+- Manual steps that are not codified (see "Codify everything" in `AGENTS.md`)
+- A lasting decision (architecture, stack, deployment, constraints) changed without a `guidance/` record update
 
 ## Do not comment on
 

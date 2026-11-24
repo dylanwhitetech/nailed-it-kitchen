@@ -48,11 +48,12 @@ Open the folder in VS Code. Read the README sections **Decisions & why**,
 and project board describe current work; select an issue whose actual prerequisites
 are complete rather than treating roadmap numbers as a mandatory sequence.
 
-## 4. Try the developer agent
+## 4. Try the main agent
 
-In VS Code, open Copilot Chat, select **naileditkitchen-dev** from the agent
-dropdown, and ask it to explain the recipe submission flow. The agent is selected
-manually. Review its output and any changes it proposes. The
+In VS Code, open Copilot Chat, select **naileditkitchen-main** from the agent
+dropdown, and ask it to explain the recipe submission flow. Select it at the start
+of every session; no repository file makes it the default (see
+[Selecting the main agent](../README.md#selecting-the-main-agent)). Review its output and any changes it proposes. The
 [AI-first workflow](../README.md#ai-first-workflow) describes the other supported
 Copilot entry points and repository agents.
 
@@ -77,7 +78,7 @@ use it only when you intend to reset the local database.
 
 - Start from an issue, work on a branch, and open a pull request using the repository
   template. Follow the branch, PR title, and commit conventions in the
-  [Copilot instructions](../.github/copilot-instructions.md#branch-pr-title-and-commit-conventions).
+  [`AGENTS.md`](../AGENTS.md#branch-pr-title-and-commit-conventions).
   A human CODEOWNER reviews and merges; agents never merge.
 - Never commit or share credentials, private keys, tokens, or real `.env` values.
   Ask an owner for any access you need; local setup should use placeholder values.
