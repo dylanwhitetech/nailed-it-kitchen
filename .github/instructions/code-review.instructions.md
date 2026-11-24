@@ -1,9 +1,12 @@
 ---
 applyTo: "**"
-excludeAgent: "coding-agent"
+excludeAgent: "cloud-agent"
 ---
 
 # Code review rules
+
+Source: retained from the repository's
+[prior review instructions](https://github.com/dylanwhitetech/nailed-it-kitchen/blob/67a469c07da5939a28c1b4b04bd2f166e6ae578d/.github/instructions/code-review.instructions.md).
 
 Be brief. Only comment when it matters.
 

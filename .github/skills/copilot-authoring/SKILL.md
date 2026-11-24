@@ -1,83 +1,141 @@
 ---
 name: copilot-authoring
-description: "Creates and updates Copilot customizations (custom agents, skills, instruction files, AGENTS.md, issue forms, PR templates) using official GitHub formats, Anthropic skill best practices, and awesome-copilot prior art. Use when adding, changing, or removing any of these files, or when a field note proposes a change to one."
+description: "Applies verified authoring standards for Copilot custom agents, skills, custom instructions, AGENTS.md, GitHub issue forms, and PR templates, and maintains the agentic resource catalogue. Use when creating, editing, or reviewing AGENTS.md, .github/agents/, .github/skills/, .github/copilot-instructions.md, .github/instructions/*.instructions.md, .github/ISSUE_TEMPLATE/*.yml or *.yaml, or pull_request_template.md and PULL_REQUEST_TEMPLATE/ under the root, docs/, or .github/, or when the user shares a new agentic resource."
 ---
 
-# Copilot authoring
+# Copilot Authoring
 
-Standards for agents, skills, instructions, `AGENTS.md`, issue forms, and PR templates. Keep each
-change small, grounded in official docs, and backed by a real need.
+Keep agentic resources small, accurate, and grounded in official docs. Check
+[references.md](references.md) before adding or changing an artifact; cite
+the sources you used in the PR description.
 
-## Authoring standards
+Source: original to this baseline; rules are summarized from the official
+GitHub and Anthropic docs listed under References.
 
-**Authoring standards** (copilot-authoring skill): official GitHub formats/locations; Anthropic skill
-rules; create a skill only after a field note/failure shows the need; prefer editing an existing
-agent/skill; awesome-copilot reference-first (existing rule kept); cite sources; least tools.
+## Before you add anything
 
-## Process
+1. Create a new skill only when a field note or observed failure
+   shows the need. Prefer editing an existing agent or skill.
+2. Check `github/awesome-copilot` for a close upstream pattern first and reuse
+   it (reference-first rule in `AGENTS.md`).
+3. Verify every format claim against the official docs in `references.md`. Do
+   not invent frontmatter fields.
 
-1. **Confirm the need.** Name the failure, field note, or user request that drives the change.
-   Prefer editing an existing agent, skill, or `AGENTS.md` over adding a file.
-2. **Search awesome-copilot first**: https://github.com/github/awesome-copilot (`agents/`, `skills/`,
-   `instructions/`, https://awesome-copilot.github.com/llms.txt; list with
-   `gh api repos/github/awesome-copilot/contents/<dir>`). If something fits, copy and adapt it and
-   keep a `Source:` link to the exact upstream file (MIT; keep attribution). If nothing fits, write
-   from scratch and say so in the PR.
-3. **Check the official docs** in [references.md](references.md) for current frontmatter and
-   locations. Never invent frontmatter fields.
-4. **Write the file** (table below), then update every roster that lists it (`AGENTS.md`, README).
-   Nothing may point to a removed or renamed file.
-5. **Validate**: frontmatter parses as YAML, links resolve, and stale names are gone (`grep`).
-6. **Open the PR** with the `gh-pr-drafter` skill, listing the upstream source and docs used.
+## Locations
 
-## File locations and format
+| Artifact | Location |
+| --- | --- |
+| Canonical repo rules | `AGENTS.md` |
+| Copilot pointer | `.github/copilot-instructions.md` |
+| Path-specific instructions | `.github/instructions/**/<name>.instructions.md` |
+| Custom agents | `.github/agents/<name>.agent.md` |
+| Skills | `.github/skills/<name>/SKILL.md` (+ files one level deep) |
+| Issue forms | `.github/ISSUE_TEMPLATE/<name>.yml` (or `.yaml`) |
+| PR templates | `pull_request_template.md` or `PULL_REQUEST_TEMPLATE/*.md` under the root, `docs/`, or `.github/` |
+| Durable decisions | `guidance/NNNN-<slug>.md` |
 
-| Kind | Location | Frontmatter |
-|------|----------|-------------|
-| Agent instructions (canonical rules) | `AGENTS.md` | none |
-| Repo-wide instructions | `.github/copilot-instructions.md` | none |
-| Path-specific instructions | `.github/instructions/<name>.instructions.md` | `applyTo` (glob); optional `excludeAgent: "code-review"` or `"coding-agent"` |
-| Custom agent | `.github/agents/<name>.agent.md` | `description` (required); `name`, `tools`, `model`, `target`, `disable-model-invocation`, `user-invocable`, `mcp-servers`, `metadata` |
-| Skill | `.github/skills/<name>/SKILL.md` | `name` (matches folder), `description` (required); optional `license`, `allowed-tools` |
-| Issue form | `.github/ISSUE_TEMPLATE/*.yml` | GitHub issue form schema |
-| PR template | `.github/pull_request_template.md` or `.github/PULL_REQUEST_TEMPLATE/` | none |
+A root `agents/` folder is not a repository agent location.
 
-## Rules
+## Attribution
 
-- **Agents:** state scope, priorities, constraints, and output. Least tools; read-only agents get
-  no `edit`. Set `model` only with a written "Why this model" comment and a supported model name.
-  `infer` is retired; use `disable-model-invocation` (not auto-picked) and `user-invocable`.
-  `handoffs` and `argument-hint` are VS Code only. CLI-only `include-custom-instructions: true` gives
-  a subagent `AGENTS.md`. Prompt under 30,000 characters. The file name (without `.agent.md`) is
-  the agent ID; use kebab-case with the repo prefix.
-- **One hop:** subagents cannot create subagents. Delegation prompts carry complete context.
-- **Skills:** `name` is lowercase letters, numbers, and hyphens (max 64). `description` is third
-  person, says what it does and when to use it (max 1,024). Keep `SKILL.md` under 500 lines; put
-  detail in files one level deep. Only add what the model does not already know.
-- **Instructions:** short, self-contained, broadly applicable. Keep only rules an agent cannot work
-  out from the code or README; overviews add cost without helping. Long dev-only path instructions
-  set `excludeAgent: "code-review"`.
-- **Sources:** agent, skill, and instruction files end with `## References` (official docs) and a
-  `Source:` line. Issue forms and PR templates cite docs and attribution in the PR description, not
-  in the user-facing template. Preserve their purpose and required fields; verify labels exist.
-- **New resources:** when the user shares a new agentic resource, append it to
-  [references.md](references.md) in the same PR.
-- No secrets, private host details, or personal data in any customization.
+- Agent, skill, and instruction prose adapted from an upstream file starts
+  with a `Source:` line linking the exact upstream file. Prose written from
+  scratch says so on its `Source:` line, and the PR notes that no upstream
+  fit existed.
+- List the official docs relied on under the file's `## References`.
+- Issue forms and PR templates have no attribution field; cite their sources
+  in authoring instructions or the PR, never as unsupported template keys.
 
-## Checklist
+## Custom agents
 
-- [ ] Need is named (field note, failure, or request); existing file edited where possible
-- [ ] awesome-copilot searched; `Source:` link or "written from scratch"
-- [ ] Frontmatter fields are all in the official docs; YAML parses
-- [ ] `## References` present (prose files); rosters in `AGENTS.md` and README updated
-- [ ] No dangling links or stale names; least tools; no secrets
+- Frontmatter: `description` (required), optional `name`, `tools`, `model`,
+  `target`, `disable-model-invocation`, `user-invocable`, `mcp-servers`,
+  `metadata`.
+- In Copilot CLI, `include-custom-instructions: true` opts a custom subagent
+  into repository instructions unless `--no-custom-instructions` is set.
+- `infer` is retired; use `disable-model-invocation` and `user-invocable`.
+- `handoffs` and `argument-hint` are ignored on GitHub.com; do not rely on
+  them for required behavior.
+- Omit `model` to inherit the default. If you pin one, state the reason in
+  the agent body or PR.
+- Prompt body maximum is 30,000 characters. Keep it far shorter.
+- Grant the least tools needed. Use aliases: `read`, `edit`, `search`,
+  `execute`, `agent`, `web`, `todo`. Omit `tools` only when the agent needs
+  everything (for example, an orchestrator).
+- For agents that delegate in VS Code and specify a `tools` list, include
+  `runSubagent`.
+- One hop: subagents cannot create subagents. In Copilot CLI, custom
+  subagents do not receive repository instructions by default. The main agent
+  gives each subagent complete context and a bounded objective.
+- No file sets a default agent; users select one per session (`/agent`,
+  `copilot --agent <id>`, or the agent picker).
+
+## Skills
+
+- Frontmatter: `name` (required; lowercase letters, numbers, hyphens; max 64;
+  matches the folder) and `description` (required; max 1,024). Optional:
+  `license`, `allowed-tools`. Do not pre-approve `shell`/`bash` in
+  `allowed-tools` unless the skill and its scripts are fully trusted.
+- Write `description` in third person and state what the skill does and when
+  to use it.
+- Keep `SKILL.md` under 500 lines; move detail into files one level deep.
+- Use consistent terminology. Avoid time-sensitive information.
+- Assume the model is capable; add only context it does not already have.
+
+## AGENTS.md and custom instructions
+
+- `AGENTS.md` holds rules an agent cannot work out from code, README, or
+  Copilot Memory: safety constraints, approvals, non-obvious conventions.
+- Do not add repository overviews or directory tours.
+- `.github/copilot-instructions.md` stays a thin pointer to `AGENTS.md`.
+- Path-specific `*.instructions.md` files need `applyTo` frontmatter with
+  one or more comma-separated globs. On GitHub.com they apply only to Copilot
+  cloud agent and code review; optional `excludeAgent: "code-review"` or
+  `"cloud-agent"` drops one of them. Check the IDE docs before relying on
+  them elsewhere.
+
+## Issue forms and PR templates
+
+- Verify formats against the GitHub docs below; issue-form YAML is not
+  supported for pull requests.
+- Issue forms require `name`, `description`, and a `body` array. Use documented
+  input types, attributes, and validations; parse YAML and check the schema,
+  not just syntax.
+- When editing a form, keep its purpose and required fields unless the change
+  is intentional. Verify that any changed default `labels` exist in the
+  target repository; missing labels are not added.
+- PR templates are Markdown. Preserve the repository's existing headings,
+  comments, and checklists when filling them out; keep requested evidence
+  accurate. Templates become available after merge to the default branch.
+
+## Changing resources
+
+- Make small, itemized add/edit/remove changes; never rewrite a whole file to
+  absorb one lesson.
+- Cite the field note, failure, or doc that motivated each change.
+- Ship guidance or doc updates in the same PR as the behavior change.
+- After renaming or removing an agent or skill, update the `AGENTS.md`
+  roster and search the repo for stale references.
+- Never include secrets or real credentials; use placeholders such as
+  `ask admin`.
+
+## Resource catalogue
+
+When the user shares a new agentic resource (paper, doc, or guide), append it
+to [references.md](references.md) under the right heading with a one-line
+note on why it matters. Do not duplicate existing entries.
 
 ## References
 
-- Resource catalogue: [references.md](references.md)
-- Source: folds in the previous `copilot-author` agent (adapted from awesome-copilot
-  [`agents/custom-agent-foundry.agent.md`](https://github.com/github/awesome-copilot/blob/main/agents/custom-agent-foundry.agent.md) and the
-  [`skills/suggest-awesome-github-copilot-agents`](https://github.com/github/awesome-copilot/tree/main/skills/suggest-awesome-github-copilot-agents),
-  [`-skills`](https://github.com/github/awesome-copilot/tree/main/skills/suggest-awesome-github-copilot-skills),
-  [`-instructions`](https://github.com/github/awesome-copilot/tree/main/skills/suggest-awesome-github-copilot-instructions) skills, MIT)
-  and the previous `copilot-customization` instructions (written from scratch from the official docs).
+Full catalogue with notes: [references.md](references.md).
+
+- [Custom agents configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration)
+- [Create custom agents for Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli)
+- [Use subagents in your IDE](https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/use-copilot-agents/use-subagents)
+- [About agent skills](https://docs.github.com/en/copilot/concepts/customizations/agent-skills)
+- [Adding repository custom instructions](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions)
+- [Customization cheat sheet](https://docs.github.com/en/copilot/reference/customization-cheat-sheet)
+- [Agent Skills best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+- [Evaluating AGENTS.md (arXiv 2602.11988)](https://arxiv.org/html/2602.11988v3)
+- [Syntax for issue forms](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms)
+- [Creating a pull request template](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository)

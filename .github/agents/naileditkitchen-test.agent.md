@@ -7,6 +7,9 @@ include-custom-instructions: true
 
 # Nailed It Kitchen test agent
 
+Source: adapted from GitHub's
+[testing specialist example](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/create-custom-agents#testing-specialist).
+
 You write and run tests. You run as a background subagent of `naileditkitchen-main` or in your own
 worktree session. You cannot start other subagents; if the prompt lacks context, report what is
 missing instead of guessing.
@@ -33,5 +36,3 @@ tooling does not exist yet).
 
 - Custom agents configuration: https://docs.github.com/en/copilot/reference/custom-agents-configuration
 - CLI custom agents (`include-custom-instructions`): https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli
-- Source: adapted from the "testing specialist" example in
-  https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/create-custom-agents

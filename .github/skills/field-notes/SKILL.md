@@ -1,28 +1,47 @@
 ---
 name: field-notes
-description: "Records short field notes about agentic learnings and blockers in the current session's files folder, never in the repository, so a curator can later improve the owning agent, skill, or AGENTS.md. Use when an agent or skill was wrong or blocked and a fix was found, a tool or command was retried with changes, the user corrected the agent, or guidance was missing or stale."
+description: "Records a short field note in the current session's files folder when an agent or skill was wrong or blocked and a fix was found, a tool or command was retried with changes, the user corrected the agent, or guidance was missing or stale. Never writes to the repository."
 ---
 
-# Field notes
+# Field Notes
 
-Capture what happened while it is fresh. One note per lesson. A curator reviews notes across
-sessions and turns them into small itemized changes to the owning file.
+Capture what happened while it is still fresh so a curator can later make a
+small, itemized improvement to the owning agent, skill, `AGENTS.md`, or
+guidance record.
+
+Source: original to this baseline; the reflect-then-curate loop is a
+lightweight adaptation of the ACE paper's reflector and curator roles.
 
 ## Triggers
 
-Triggers: agent/skill was wrong or blocked and a fix was found; same tool/command retried with
-changes; user corrected the agent; guidance was missing/stale. Never write notes into the repo.
+Write one note when any of these happen:
 
-## Where
+- An agent or skill was wrong or blocked and a fix was found.
+- The same tool or command was retried with changes before it worked.
+- The user corrected the agent.
+- Guidance was missing or stale.
 
-`<session-state>/<session-id>/files/field-notes/YYYYMMDD-HHMM-<slug>.md`, inside the current
-session's folder (for example `~/.copilot/session-state/<session-id>/files/field-notes/`). Create
-the folder if needed. Never write notes to the repository or commit them.
+Do not write notes for routine success, expected failures that the workflow
+already handles, or speculation without evidence.
+
+## Location
+
+Write only to the current session's files folder:
+
+```text
+<session-state>/<session-id>/files/field-notes/YYYYMMDD-HHMM-<slug>.md
+```
+
+Use the session artifacts/files directory provided by the runtime. Never write
+field notes inside the repository checkout, and never commit them.
 
 ## Format
 
-```
-repo: owner/name          owner: <agent-or-skill-file or AGENTS.md>
+Use exactly these fields, one note per file:
+
+```text
+repo: owner/name
+owner: <agent-or-skill-file, AGENTS.md, or guidance record>
 kind: wrong | blocked | repeated-tool | user-correction | missing-guidance
 trigger: what happened (1-3 lines)
 fix: what worked
@@ -33,17 +52,21 @@ status: new
 
 ## Rules
 
-- `owner` is the repo-relative path of the file that should change (agent, skill, `AGENTS.md`, or a
-  `guidance/` record).
-- One proposed change per note, small enough to apply as a single edit.
-- Redact secrets, tokens, private hosts, and personal data from evidence.
-- Do not edit the owner file from the note; the curator proposes changes in a PR. Fix the current
-  task normally.
-- Leave `status: new`; the curator updates it.
+- `owner` is the file to add or change (for example
+  `.github/agents/<name>.agent.md`, `.github/skills/<name>/SKILL.md`,
+  `AGENTS.md`, or a `guidance/` record).
+- `proposed change` is one concrete add, edit, or remove. Split unrelated
+  lessons into separate notes.
+- Keep `evidence` factual: exact commands, error text, and links. Redact
+  secrets, tokens, personal data, and private host data from the note.
+- Leave `status: new`. The curator sets `status: curated <date> <PR>` after
+  verifying a draft PR. Until then, the note remains pending.
 
 ## References
 
-- Agentic Context Engineering (reflector/curator idea, used lightly): https://arxiv.org/html/2510.04618v3
-- About agent skills: https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
-- Source: written from scratch; no awesome-copilot skill fits (`skills/memory-merger` targets VS Code
-  memory files, not session-folder notes).
+- [Agentic Context Engineering (ACE)](https://arxiv.org/html/2510.04618v3):
+  generator, reflector, and curator roles with itemized delta updates.
+- [Agent Skills best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
+  concise skills that are evaluated and refined from observed use.
+- [About agent skills](https://docs.github.com/en/copilot/concepts/customizations/agent-skills):
+  GitHub Copilot skill format and locations.

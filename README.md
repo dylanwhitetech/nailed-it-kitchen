@@ -103,7 +103,7 @@ the Copilot CLI and the Copilot cloud agent on GitHub.
 | `AGENTS.md` | Canonical rules for agents and humans (source of truth). `.github/copilot-instructions.md` points to it. |
 | `guidance/` | Lasting decisions (architecture, stack, deployment). Check before new work; update in the same PR. |
 | `.github/instructions/*.instructions.md` | Extra rules for certain paths (code review, Copilot authoring). |
-| `.github/agents/naileditkitchen-main.agent.md` | **Main agent: start every session with it.** Plans, implements, and delegates. |
+| `.github/agents/naileditkitchen-main.agent.md` | **Main agent: select it for each session.** Plans, implements, and delegates. |
 | `.github/agents/naileditkitchen-test.agent.md` | Writes and runs tests (background subagent or its own session). |
 | `.github/agents/naileditkitchen-deploy.agent.md` | Releases, promotion PRs to k3s-infrastructure, read-only rollout checks. |
 | `.github/skills/gh-issue-drafter/` | Drafts from the target repo's actual issue form and reconciles labels, epics, dependencies, and Project fields. |
@@ -126,9 +126,9 @@ must use a Conventional Commit message rather than the slash-form PR title.
 
 ### Selecting the main agent
 
-No repository file can make `naileditkitchen-main` the automatic default; each surface starts
-with its built-in agent until you pick one. The agent has `disable-model-invocation: true`, so
-Copilot never picks it on its own. Select it per session:
+No automatic repository default for `naileditkitchen-main` has been established. The agent sets
+`disable-model-invocation: true` to prevent automatic selection by Copilot in the cloud. Select it
+per session on a supported surface:
 
 | Surface | How |
 |---------|-----|

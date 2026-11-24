@@ -91,7 +91,7 @@ still win; put the answer inside the first section.
 
 | Name | Type | Use it for |
 |------|------|-----------|
-| `naileditkitchen-main` | agent | Default entry agent for every session; plans, implements, delegates |
+| `naileditkitchen-main` | agent | Entry agent selected per session; plans, implements, delegates |
 | `naileditkitchen-test` | agent | Writing and running tests (background subagent or its own session) |
 | `naileditkitchen-deploy` | agent | Releases, promotion PRs to k3s-infrastructure, read-only rollout checks |
 | `gh-issue-drafter` | skill | Issues from the target repo's real forms, labels, dependencies, Project fields |
