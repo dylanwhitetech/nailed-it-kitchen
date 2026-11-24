@@ -21,8 +21,9 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
    documentation/customization checks; never claim unavailable application or Docker checks passed.
 2. **PRs** use the `gh-pr-drafter` skill, the PR template, and `Closes #N`.
 3. **Never merge to `main`.** A human from CODEOWNERS approves and merges; agents never merge.
-4. **No secrets** in code, issues, PRs, prompts, examples, or logs. Secrets live in SOPS in
-   `dylanwhitetech/k3s-infrastructure` or in GitHub repo secrets. Use placeholders.
+4. **Do not disclose secrets, sensitive personal data, or private host details** in code, issues,
+   PRs, prompts, examples, or logs. Secrets live in SOPS in `dylanwhitetech/k3s-infrastructure`
+   or in GitHub repo secrets. Use placeholders.
 5. **Codify everything.** Any manual change (cluster, Cloudflare, GitHub settings) must end up as
    code or docs. If something was done by hand, open an issue to codify it:
    cluster/platform → `dylanwhitetech/k3s-infrastructure`; app/chart → this repo.
