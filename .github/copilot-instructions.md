@@ -155,6 +155,7 @@ When creating or changing a Copilot agent, skill, instruction file, issue form, 
 | `naileditkitchen-k3s-ops` | agent | Read-only cluster triage for the app (local only, needs kubeconfig) |
 | `gh-issue-drafter` | skill | Drafting issues from the target repo's actual forms and reconciling labels, dependencies, epics, and Project fields |
 | `gh-pr-drafter` | skill | Issue-prefixed branches/PR titles, Conventional Commit messages, and our PR template |
+| `visual-explanation` | skill | Explaining a topic with a concise visual or focused, accessible HTML artifact |
 
 Planned (as issues): `local-preflight` skill (S16), `recipe-grid-author` skill (S18).
 
