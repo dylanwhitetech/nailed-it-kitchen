@@ -123,7 +123,7 @@ These settings are **not represented as applied** here:
 
 | Area | Required action | Status |
 | --- | --- | --- |
-| Copilot custom content exclusion | Requested paths: `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and generated files | Unavailable in the current repository Settings UI, reported by the administrator; follow-up [#57](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/57) |
+| Copilot custom content exclusion | Requested paths: `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and generated files | Unavailable in the current repository Settings UI, reported by the administrator; a maintainer decision is tracked on the project board |
 | Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
 | CodeQL default setup | Owner confirms Python and JavaScript/TypeScript in Settings → Code security → Code scanning and reviews their analyses; record the date and result here | Pending owner verification; API readback above is agent-collected |
 | Trivy image scanning | Decide whether to keep the Trivy workflow, which [guidance 0014](../guidance/0014-beta-dependency-and-security-checks.md) did not adopt, and record or supersede that decision; triage its open image findings | Pending owner decision and triage |
@@ -139,9 +139,9 @@ documented. Custom content exclusion is documented for Copilot Business and
 Enterprise and applies to Copilot code review. On 2026-10-06, the administrator
 reported that the Content exclusion menu is absent. Treat this as an unavailable
 control in the current setup, not as a setting still waiting to be saved. The
-account's exact subscription has not been independently verified. Follow-up #57
-tracks the maintainer decision about deferring the requirement or using an eligible
-configuration; no subscription or repository ownership changes were made.
+account's exact subscription has not been independently verified. The maintainer
+decision about deferring the requirement or using an eligible configuration is
+tracked on the project board; no subscription or repository ownership changes were made.
 
 Separately, GitHub's built-in code-review exclusions already include
 `package-lock.json`, `**/*.lock`, and common generated-file locations such as
@@ -159,9 +159,9 @@ An earlier fork-PR approval readback conflicted with the repository owner's
 verification. The latest GET now reports `all_external_contributors`, so the
 requested policy is currently verified as applied.
 
-Issue #11 is not complete and must not be treated as unblocking #12 until the
-remaining cloud-agent access check is resolved and the maintainer accepts a
-disposition for the unavailable custom-exclusion control tracked in #57.
+Repository setup is not complete until the remaining cloud-agent access check is
+resolved and the maintainer accepts a disposition for the unavailable
+custom-exclusion control.
 
 The repository Actions API reports `allowed_actions=all`. This controls which
 Actions may run and is separate from the verified default token permission and
