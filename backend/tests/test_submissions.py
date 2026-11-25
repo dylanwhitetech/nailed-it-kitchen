@@ -2,6 +2,7 @@
 
 import ipaddress
 import json
+import time
 
 import httpx
 import pytest
@@ -12,6 +13,7 @@ from backend.app.submissions import (
     PublishError,
     SubmissionRateLimiter,
     TurnstileVerifier,
+    _contains_markup,
 )
 from recipes.validate import MAX_CONTENT_CHARS, content_length
 
@@ -337,6 +339,40 @@ def test_plain_symbols_and_emoji_remain_text(client, app):
     response = post_json(client, payload(recipe=recipe(notes=[text])))
     assert response.status_code == 201
     assert app.state.recipe_publisher.calls[0]["notes"] == [text]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("< b>", True),
+        ("<  /  div >", True),
+        ("<?xml?>", True),
+        ("a <b and later c>", True),
+        ("<b", False),
+        ("> then <b", False),
+        ("1 < 2 > 0", False),
+        ("< / >", False),
+        ("<>", False),
+    ],
+)
+def test_markup_detection_requires_tag_start_before_closing(text, expected):
+    assert _contains_markup(text) is expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("<" + " " * 50_000, False),
+        ("<" + " " * 50_000 + ">", False),
+        ("<!" * 25_000, False),
+        ("<!" * 25_000 + ">", True),
+        ("< /" * 15_000, False),
+    ],
+)
+def test_markup_detection_is_linear_on_hostile_input(text, expected):
+    started = time.perf_counter()
+    assert _contains_markup(text) is expected
+    assert time.perf_counter() - started < 0.5
 
 
 # Client identity and proxy trust

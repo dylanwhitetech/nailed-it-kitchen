@@ -50,7 +50,8 @@ REQUEST_FIELDS = ("recipe", "turnstile_token")
 # C0/C1 controls except tab, which normalizes to a space like other whitespace runs.
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0a-\x1f\x7f-\x9f]")
 _ALLOWED_FORMAT_CHARS = {"\u200d"}  # zero-width joiner inside emoji sequences
-_MARKUP_TAG = re.compile(r"<\s*/?\s*[a-z!?][^>]*>", re.IGNORECASE)
+# A tag start such as "<b", "< /div" or "<!--"; a tag needs a later ">" (see _contains_markup).
+_MARKUP_TAG_START = re.compile(r"<\s*(?:/\s*)?[a-z!?]", re.IGNORECASE)
 _SCRIPT_URL = re.compile(
     r"\b(?:javascript|vbscript)\s*:|\bdata\s*:\s*[a-z]+/[a-z0-9.+-]+", re.IGNORECASE
 )
@@ -393,6 +394,16 @@ def _text_values(recipe: dict[str, Any]) -> Iterable[tuple[str, str]]:
                     yield f"{key}[{index}]", value
 
 
+def _contains_markup(value: str) -> bool:
+    """Return whether ``value`` has a tag start followed later by ``>``.
+
+    Bounding the search before the last ``>`` keeps this linear on hostile input such as
+    ``"<" + " " * n`` or ``"<!" * n``, instead of rescanning to the end from every ``<``.
+    """
+    closing = value.rfind(">")
+    return closing > 0 and _MARKUP_TAG_START.search(value, 0, closing) is not None
+
+
 def _unsafe_text_problem(value: str) -> str | None:
     if _CONTROL_CHARS.search(value):
         return "contains a line break or control character; keep each entry on one line"
@@ -401,7 +412,7 @@ def _unsafe_text_problem(value: str) -> str | None:
         for char in value
     ):
         return "contains an invisible formatting character"
-    if _MARKUP_TAG.search(value):
+    if _contains_markup(value):
         return "contains HTML-like markup; describe it in plain text"
     if _SCRIPT_URL.search(value):
         return "contains a script or data URL"
