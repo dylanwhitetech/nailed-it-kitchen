@@ -1,0 +1,213 @@
+# Pull request checks and multi-arch image publication.
+# Uses the unprivileged `pull_request` event only: PR code never runs with write tokens or secrets.
+# Third-party Actions are pinned to full commit SHAs; the comment records the release tag.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  # Cancel superseded PR runs; main pushes have independent groups so pending runs are not replaced.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
+        # Disposable CI-only database; these placeholder credentials protect nothing.
+        env:
+          POSTGRES_USER: nik
+          POSTGRES_PASSWORD: nik
+          POSTGRES_DB: nik_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nik -d nik_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://nik:nik@localhost:5432/nik_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Ruff lint
+        run: python -m ruff check backend
+      - name: Ruff format
+        run: python -m ruff format --check backend
+      - name: Pytest (with PostgreSQL)
+        run: python -m pytest backend/tests -rs
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Oxlint
+        run: npm run lint
+      - name: Vitest
+        run: npm test
+      - name: Type check and build
+        run: npm run build
+
+  recipes:
+    name: Recipes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Recipe files are untrusted data: the validator parses them with a strict safe YAML loader
+    # and JSON Schema. No file name or content is interpolated into shell or workflow code.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: recipes/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r recipes/requirements.txt
+      - name: Validate recipes/*.yaml
+        run: python recipes/validate.py
+      - name: Validator and fixture tests
+        run: python -m pytest recipes
+      - name: Ruff
+        run: |
+          python -m ruff check recipes
+          python -m ruff format --check recipes
+
+  chart:
+    name: Helm chart applicability
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Not Helm validation. Reports "not applicable" while no chart exists and fails once a chart
+    # appears, so a chart can never merge behind a green check that did not lint it.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check for deploy/chart
+        run: |
+          if [ -e deploy/chart ]; then
+            echo "::error::deploy/chart exists but this workflow has no Helm lint/template/install checks. Add them with the chart."
+            exit 1
+          fi
+          echo "::notice::Helm validation not applicable: deploy/chart does not exist. No chart was linted or installed."
+          echo "Helm validation: **not applicable** (deploy/chart does not exist). No chart was linted or installed." >> "$GITHUB_STEP_SUMMARY"
+
+  image-build:
+    name: Image build (${{ matrix.component }})
+    if: github.event_name == 'pull_request'
+    # Builds each Dockerfile's final stage; that stage must remain the production image.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            context: .
+            file: backend/Dockerfile
+          - component: web
+            context: frontend
+            file: frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build linux/amd64 and linux/arm64 (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: false
+
+  image-publish:
+    name: Image publish (${{ matrix.component }})
+    # Trusted pushes to main in this repository only, after every check passes.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dylanwhitetech/nailed-it-kitchen'
+    needs: [backend, frontend, recipes, chart]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # push SHA-tagged images to this repository's GHCR packages
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            context: .
+            file: backend/Dockerfile
+          - component: web
+            context: frontend
+            file: frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push linux/amd64 and linux/arm64
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # Only the full commit SHA tag: never a moving tag such as latest.
+          tags: ghcr.io/dylanwhitetech/naileditkitchen-${{ matrix.component }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          annotations: |
+            index:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            index:org.opencontainers.image.revision=${{ github.sha }}
+      - name: Record published image
+        env:
+          IMAGE: ghcr.io/dylanwhitetech/naileditkitchen-${{ matrix.component }}:${{ github.sha }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: echo "Published \`${IMAGE}\` (\`${DIGEST}\`) for linux/amd64 and linux/arm64." >> "$GITHUB_STEP_SUMMARY"

@@ -119,7 +119,8 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
    - Postgres: `localhost:5432`
 4. Run the [backend](docs/backend.md), [frontend](docs/frontend.md) and
    [recipe](docs/recipe-format.md#validate-recipes-locally) checks documented with their implementation.
-   The recipe checks require Python, not Docker.
+   The recipe checks require Python, not Docker. [CI](docs/ci.md) runs the same checks on every
+   pull request and lists their exact local equivalents.
    The optional Post-beta `local-preflight` skill is not required.
 5. Reset the database: `docker compose down -v` (deletes local volumes and their data).
 
@@ -184,7 +185,7 @@ backend/         FastAPI, migrations, recipe seeder and API image (see docs/back
 recipes/*.yaml   Reviewed plain-text recipes (docs/recipe-format.md)
 recipes/schema/  Recipe JSON Schema; recipes/validate.py validates and extracts
 recipes/source/  Original recipes used as test fixtures
-docs/            Contributor, repository setup and recipe format
+docs/            Contributor, CI, repository setup and recipe format
 guidance/        Lasting decisions (one record per decision)
 .github/         Copilot agents, skills, instructions, templates, workflows
 ```

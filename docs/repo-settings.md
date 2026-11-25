@@ -35,7 +35,8 @@ that code landed; the code-scanning analyses API shows `main` analyses for
 The bypass preserves the repository owner's break-glass access. `CODEOWNERS` names
 `@dylanwhitetech` and `@ArthurW2`; both have repository write access, so both remain
 eligible to review. No required CI status checks are configured yet; the ruleset's
-required-status-check list is intentionally empty until CI is added.
+required-status-check list stays empty until an owner applies the
+[required CI checks](#required-ci-checks) below.
 
 GitHub's repository API readback reports `pull_request_creation_policy=collaborators_only`.
 The Actions fork-PR approval endpoint currently reports
@@ -72,6 +73,27 @@ document's initial set date and the workflow's `initial_set_date`; existing late
 closure dates still take precedence. Reopen a mistakenly closed reminder until
 renewal is complete. Missed checks recover on the next run without skipping an
 overdue reminder.
+
+## Required CI checks
+
+**Pending owner action.** The [CI workflow](ci.md) reports these job names on every pull request.
+After they have run on GitHub at least once, an owner adds them to the `main` ruleset's
+required status checks (source: GitHub Actions), reads the ruleset back and re-exports
+[`.github/rulesets/main.json`](../.github/rulesets/main.json). Until then the export correctly
+shows an empty list, and these checks are informative rather than enforced.
+
+| Required check | Purpose |
+| --- | --- |
+| `Backend` | Ruff and pytest against PostgreSQL |
+| `Frontend` | Oxlint, Vitest, type check and build |
+| `Recipes` | Plain recipe schema validation and validator/fixture tests |
+| `Helm chart applicability` | Not applicable without a chart; blocks a chart that lacks Helm checks |
+| `Image build (api)` | amd64/arm64 API image builds |
+| `Image build (web)` | amd64/arm64 web image builds |
+
+The publish jobs run only on `main` and are not required checks. The existing strict
+"up to date before merging" policy and CodeQL rule are unchanged. Dependency review runs
+separately; whether to require it is an owner decision recorded below.
 
 ## Automated dependency checks (committed configuration)
 
