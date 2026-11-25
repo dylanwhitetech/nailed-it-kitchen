@@ -53,8 +53,8 @@ acceptance criteria.
 1. Draft the form's exact required sections. Lead the body's first section with the outcome per the Minto output structure in `AGENTS.md`, preserving the form's exact headings.
    For roadmap/epic issues preserve the navigation list and
    exit criteria, but describe phase and legacy `[Sxx]` identifiers as navigation only; execution
-   order comes from actual prerequisites. The roadmap's #30/#31 are v0 foundation work before first
-   deploy, retaining legacy `[S29]`/`[S30]` identifiers.
+   order comes from actual prerequisites. Beta has one delivery epic; Post-beta tasks are not
+   launch prerequisites. Consolidated issues stay closed as superseded, not completed.
 2. Include `## Blocked by` with issue links or `None`, and `## Codify` with the destination for
    durable code/docs or `N/A`. Add exact `## Steps` only for manual work. Include
    `## Copilot-ready?` with `yes` or `no` and a concrete reason; describe human gates honestly.
@@ -87,12 +87,12 @@ acceptance criteria.
    - Add the issue to the appropriate Project (`gh project item-add PROJECT_NUMBER --owner OWNER --url ISSUE_URL`)
      and reconcile **Phase**, **Sequence**, and **Status**
      against the issue body, labels, milestone, and actual prerequisites. For the Nailed It Kitchen
-     Project, valid Phase values are `0 Repo & access`, `1 Cloudflare & platform`, `2 v0 Foundations`,
-     `3 First deploy`, `4 v1 MVP`, and `Future`; Status values are `Todo`, `In Progress`, and `Done`.
+     Project, current work uses Phase `Beta` or `Post-beta`; historical phase choices remain for
+     completed/superseded planning history. Status values are `Todo`, `In Progress`, and `Done`.
      Preserve an existing Sequence; set one only when the maintained roadmap explicitly assigns it.
      Do not turn phase or legacy sequence order into a blocker. Discover field IDs/options with
      `gh project field-list` and `gh project item-list` before writing. Set values with
-     `gh project item-edit PROJECT_NUMBER --owner OWNER --url ISSUE_URL --field "Phase" --value "2 v0 Foundations"`
+     `gh project item-edit PROJECT_NUMBER --owner OWNER --url ISSUE_URL --field "Phase" --value "Beta"`
      (use the verified value for each field). `Sequence` may be absent from the CLI item-list output;
      inspect that field through the Project UI or a supported GraphQL query rather than assuming it
      is blank. Check the Project again after create or edit; report any field the CLI/API cannot

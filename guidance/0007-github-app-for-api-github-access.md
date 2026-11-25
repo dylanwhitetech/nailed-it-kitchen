@@ -1,7 +1,7 @@
 # 0007: GitHub App for API access to GitHub
 
 ## Status
-Accepted
+Superseded by [0012](0012-beta-recipe-pr-permissions.md)
 
 ## Context
 The API must open issues for submissions and feedback without a long-lived personal token.

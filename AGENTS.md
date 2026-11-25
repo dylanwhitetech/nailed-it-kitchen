@@ -7,7 +7,9 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
 
 ## Before you start
 
-- **Issue first.** Every change maps to a GitHub issue. Create one with the `gh-issue-drafter` skill.
+- **Issue first.** Software/configuration changes map to a GitHub issue. Create one with the
+  `gh-issue-drafter` skill. The planned app-generated, recipe-content-only PR flow is the narrow
+  exception: it uses the dedicated recipe review template without a synthetic submission issue.
 - **Check guidance first.** Before a new scope of work, read `guidance/README.md` and the records
   related to the work. Legacy `[Sxx]` IDs and phase labels are navigation, not execution order;
   follow actual prerequisites and native dependencies, and work in parallel when nothing blocks.
@@ -19,7 +21,9 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
 1. **Test locally before pushing** using README "Run & test locally (Docker)" (and the
    `local-preflight` skill once it exists). For documentation-only changes, run the available
    documentation/customization checks; never claim unavailable application or Docker checks passed.
-2. **PRs** use the `gh-pr-drafter` skill, the PR template, and `Closes #N`.
+2. **Software PRs** use the `gh-pr-drafter` skill, the PR template, and `Closes #N`.
+   App-generated recipe-content-only PRs use the dedicated recipe template once implemented;
+   never extend that exception to code, configuration, or workflow changes.
 3. **Never merge to `main`.** A human from CODEOWNERS approves and merges; agents never merge.
 4. **Do not disclose secrets, sensitive personal data, or private host details** in code, issues,
    PRs, prompts, examples, or logs. Secrets live in SOPS in `dylanwhitetech/k3s-infrastructure`
@@ -27,8 +31,8 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
 5. **Codify everything.** Any manual change (cluster, Cloudflare, GitHub settings) must end up as
    code or docs. If something was done by hand, open an issue to codify it:
    cluster/platform → `dylanwhitetech/k3s-infrastructure`; app/chart → this repo.
-6. **Public repo, private contributions.** Only collaborators open issues/PRs. The public sends
-   recipes and feedback through the app, never directly on GitHub.
+6. **Public repo, private contributions.** Only collaborators or the authorized app open issues/PRs.
+   The public submits recipes through the app, never directly on GitHub. App feedback is Post-beta.
 7. **Guidance ships with the PR.** When a change introduces, replaces, or retires a lasting
    decision (architecture, stack, deployment, constraints), create or update a `guidance/` record
    in the same PR. Supersede records rather than deleting them.
@@ -74,6 +78,8 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
   Use the GitHub issue number (not `S12`), lowercase kebab-case, no spaces, underscores, or
   empty/consecutive hyphens. The PR title matches a conforming branch. Session-managed branches are
   not renamed; their PR titles still follow the convention.
+  The planned app-generated recipe-content-only flow uses server-generated branch/PR names and its
+  dedicated review template instead; it must not accept user-chosen branches, paths, or workflows.
 - Commits follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
   `<type>[scope][!]: <imperative description>` (`feat`, `fix`, `docs`, `refactor`, `test`, `build`,
   `ci`, `chore`, ...). Mark breaking changes with `!` or a `BREAKING CHANGE:` footer. Commit types are
@@ -104,8 +110,8 @@ still win; put the answer inside the first section.
 | `copilot-authoring` | skill | Creating or changing agents, skills, instructions, templates, `AGENTS.md` |
 
 Code review uses built-in Copilot code review on GitHub with
-`.github/instructions/code-review.instructions.md`. Planned skills: `local-preflight` (S16),
-`recipe-grid-author` (S18).
+`.github/instructions/code-review.instructions.md`. Optional `local-preflight` and future grid
+authoring support are Post-beta; normal documented validation does not depend on either skill.
 
 ## Learning loop
 
