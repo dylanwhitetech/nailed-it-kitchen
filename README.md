@@ -1,15 +1,13 @@
 # Nailed It Kitchen
 
-A recipe app for the adulting millennial. Recipes are shown as an easy-to-read **grid**
-(ingredients on the left, each cooking action combining them to the right), inspired by the
-"Cooking for Engineers" recipe card.
+A simple recipe app: browse, search and read ingredients followed by cooking instructions.
+The first usable release is the **beta**; advanced recipe grids and other extras come later.
 
 **URL:** https://naileditkitchen.dylanlabs.dev (not live yet)
 
-> **Status:** planning is done and application code has not started. Work is tracked in GitHub issues;
-> use the pinned **`[S00] Getting started roadmap`** as navigation, not as a mandatory serial queue.
-> Follow actual prerequisites and native issue dependencies; safe parallel work is encouraged.
-> Issues #30/#31 (legacy `[S29]`/`[S30]`) are v0 foundation work before first deploy.
+> **Status:** beta scope is agreed; application implementation has not started and the site is
+> not live yet. GitHub has one Beta delivery epic and a separate Post-beta backlog. Follow actual
+> prerequisites and native issue dependencies, not legacy phase or sequence numbers.
 
 ## Team
 
@@ -30,11 +28,10 @@ flowchart LR
   NG -->|/| WEB[web: nginx + React/Vite build]
   NG -->|/api| API[api: FastAPI]
   API --> PG[(Postgres via CloudNativePG)]
-  API -->|GitHub App| GHI[GitHub Issues]
-  GHI -->|label recipe:approved| ACT[Action -> assign Copilot cloud agent]
-  ACT --> PR[PR adds recipes/*.yaml] --> CI[CI validates schema] --> MERGE[human merge]
+  API -->|validated submission + GitHub App| PR[PR adds one recipes/*.yaml file]
+  PR --> CI[CI validates plain recipe schema] --> MERGE[human merge]
   MERGE --> REL[release-please + GHCR images + Helm chart] --> FLUX[Flux in k3s-infrastructure]
-  FLUX -->|pre-upgrade Job| SEED[Alembic migrate + seed recipes into PG]
+  FLUX --> SEED[ordered Alembic migration + recipe seed Job]
   PG -.nightly pg_dump.-> NFS[(ssd-nfs PVC)]
 ```
 
@@ -47,40 +44,61 @@ It runs on a 3-node Raspberry Pi 4 (arm64) k3s cluster managed with Flux in
 |------|----------|-----|
 | Frontend | React + Vite + TypeScript, Oxlint, Vitest | React is the most common UI library, so help and components are easy to find. Vite gives instant dev reloads and simple builds. TypeScript catches mistakes early. Oxlint and Vitest are fast and fit Vite. |
 | Backend | FastAPI (Python 3.12), Ruff, pytest | Typed and fast, generates OpenAPI docs automatically, and Python keeps the API simple. Ruff and pytest are the standard fast lint/test tools. |
-| Database | PostgreSQL via the CloudNativePG operator, SQLAlchemy + Alembic | Real relational data (recipes, ingredients, ratings) plus built-in full-text search. CNPG manages Postgres on Kubernetes (failover, backups, status) and can be reused by future apps. Alembic gives versioned migrations. |
+| Database | PostgreSQL via CloudNativePG, SQLAlchemy + Alembic | Store plain recipes and durable view counts with built-in keyword search. Later fields use ordinary migrations rather than speculative tables. |
 | DB storage | `local-path` volume pinned to one node + nightly `pg_dump` to NFS | Running Postgres directly on NFS risks corruption. Local disk is safe and fast; the nightly dump on the NFS share is the backup. |
-| Recipe format | YAML files in `recipes/`, checked by a JSON Schema | Recipes are code: reviewable in PRs, versioned, and easy for Copilot to write. The schema keeps the grid renderer simple and safe. |
-| Recipe submissions | GitHub-native: form → issue → `recipe:approved` label → Copilot cloud agent opens a PR → CI → human merge | No admin UI or moderation queue to build. GitHub gives review, history and automation for free. |
-| Feedback | Ratings and "I made this" in Postgres; app feedback opens an issue | Quick signals live with the data; real feedback lands where we work. |
-| Accounts | None in v1; Cloudflare Turnstile + API rate limits | No passwords or personal data to protect. Turnstile blocks bots without annoying captchas. |
-| Photos | Not in v1 | Keeps storage and moderation simple; a research issue covers it later. |
+| Recipe format | Reviewed YAML: slug, title, ingredient text lines and ordered instruction text steps | A small JSON Schema keeps storage, submissions and rendering consistent. No grid/DAG model in beta. |
+| Recipe submissions | Paste template → editable preview → protected API → one recipe PR → CI → human merge | Deterministic parsing, no AI provider or intermediate issue. GitHub supplies review and history. |
+| Popularity | Approximate detail-view counts in Postgres | Most-viewed on the landing page without accounts, visitor identities or a separate analytics service. |
+| Accounts | None in beta; Turnstile, rate limits and server validation protect submissions | A small audience is not a security boundary. Ratings, comments and feedback forms are Post-beta. |
+| Photos | Post-beta | Text-only recipes keep storage and moderation simple. |
 | Containers | Docker Desktop for local dev; multi-arch (amd64/arm64) images on GHCR; k3s runs them with containerd | The same images run on laptops, in CI and on the Pis. `docker compose` starts the whole stack locally with one command. |
 | Hosting | Helm chart → OCI on GHCR → Flux in k3s-infrastructure; Cloudflare Tunnel → ingress-nginx | GitOps: the cluster state is in git and every change is a reviewed PR. The tunnel avoids opening home ports and Cloudflare handles TLS. |
-| GitHub from the API | GitHub App `naileditkitchen-bot` (issues: write only) | Narrow permissions and short-lived tokens instead of a personal token. |
-| Styling | Decided by @ArthurW2 (issue S14) | Our frontend expert picks the approach. |
+| GitHub from the API | GitHub App `naileditkitchen-bot`; beta needs Contents and Pull requests write approval | Short-lived repository-scoped tokens. The verified issues-only setup does not yet support the planned PR workflow. |
+| Styling | Simple CSS, small React components and original NIK branding | Clean beta first; Arthur can restyle it later without a design-system dependency. |
 | AI-first | `AGENTS.md` rules plus Copilot agents, skills and instructions in `.github/`; decisions in `guidance/` | Copilot follows the same rules as humans, and anyone can hand it an issue. |
 
 ## How recipe submission works
 
-1. Someone fills in the **Submit a recipe** form in the app (free text is fine). Turnstile checks they're human.
-2. The API (as `naileditkitchen-bot`) opens a GitHub issue labeled `recipe:submission` and locks it.
-   *Submissions are public; the form says so.*
-3. A maintainer reads it and adds the `recipe:approved` label.
-4. A GitHub Action assigns the **Copilot cloud agent**, which uses the `recipe-grid-author` skill to turn the text into `recipes/<slug>.yaml` and opens a PR.
-5. CI validates the YAML against the schema; a maintainer reviews and merges.
-6. release-please ships a release; Flux deploys it; a pre-upgrade Job migrates the DB and seeds the new recipe.
+This is the agreed beta contract, not an already implemented form:
 
-## v1 scope
+1. Paste one recipe using the template below. Deterministic parsing produces an editable preview.
+2. Confirm the preview after the form warns that the submission will be public on GitHub.
+3. The server validates the recipe, verifies Turnstile, enforces per-client and aggregate rate limits,
+   and uses `naileditkitchen-bot` to add one new recipe file in a PR. No intermediate issue or AI step.
+4. CI validates the file as data; a CODEOWNER reviews and merges. Recipe PRs never merge automatically.
+5. The release/promotion workflow and Flux publish the reviewed recipe to Postgres.
 
-**In:** browse recipes, search + tag filter (Postgres full-text search), grid recipe view (mobile-friendly),
-submit-a-recipe form, app feedback form, star ratings and "I made this".
+```text
+Recipe title
 
-**Out (Future):** photos, user accounts, comments, servings scaling, print view, in-browser AI recipe conversion.
+Ingredients
+- First ingredient
+- Second ingredient
+
+Instructions
+1. First cooking instruction.
+2. Second cooking instruction.
+```
+
+The planned server-side switch defaults submissions off until configured and verified. Disabling
+submissions leaves browsing/search available. Requests are limited to 32 KiB and recipe content
+to 20,000 characters; text is validated, safely serialized and rendered as text, never executed.
+Malformed or ambiguous recipes must be corrected rather than guessed at. Human review still matters.
+
+## Beta scope
+
+**In:** clean mobile-friendly UI and NIK logo, most-viewed section, paginated A-Z browsing, keyword
+search across title/ingredients/instructions, plain recipe pages, protected recipe PR submissions,
+durable Postgres data, repeatable release/deployment, backups and a verified restore.
+
+**Post-beta:** grid/DAG recipes, tags and richer metadata/filtering, semantic search, ratings,
+"I made this", feedback forms, visual polish/design systems, accounts, photos, comments, servings
+scaling, print view and AI conversion. Optional Copilot tooling does not block beta.
 
 ## Run & test locally (Docker)
 
-> **Placeholder:** the real commands land with issue **S15** (docker-compose). Keep this section accurate;
-> S15 is only done when these commands work exactly as written.
+> **Not implemented yet:** Compose, app containers and test commands are beta implementation work.
+> The commands below are the intended contract, not evidence that the current checkout runs.
 
 **Do this before every push.**
 
@@ -88,9 +106,10 @@ submit-a-recipe form, app feedback form, star ratings and "I made this".
 2. Copy `.env.example` to `.env` (no real secrets needed locally).
 3. Start everything: `docker compose up --build`
    - Web: http://localhost:8080
-   - API: http://localhost:8000 (docs at http://localhost:8000/docs)
+   - API: http://localhost:8000 (docs at http://localhost:8000/api/docs)
    - Postgres: `localhost:5432`
-4. Run the tests (exact commands added in S12/S13/S16; the `local-preflight` skill runs them all).
+4. Run the backend, frontend and recipe checks documented with their implementation.
+   The optional Post-beta `local-preflight` skill is not required.
 5. Reset the database: `docker compose down -v`
 
 ## AI-first workflow

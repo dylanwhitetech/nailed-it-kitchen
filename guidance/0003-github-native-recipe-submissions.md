@@ -1,7 +1,7 @@
 # 0003: GitHub-native recipe submissions
 
 ## Status
-Accepted
+Superseded by [0011](0011-direct-beta-recipe-prs.md)
 
 ## Context
 The public must be able to submit recipes and feedback without accounts or direct GitHub access, and maintainers do not want to build an admin UI or moderation queue.

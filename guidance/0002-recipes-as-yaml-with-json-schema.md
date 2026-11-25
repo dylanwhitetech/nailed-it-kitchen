@@ -1,7 +1,7 @@
 # 0002: Recipes as YAML validated by a JSON Schema
 
 ## Status
-Accepted
+Superseded by [0010](0010-plain-text-beta-recipes.md)
 
 ## Context
 Recipes are displayed as a "Cooking for Engineers" style grid and must be reviewable, versioned, and safe to render.
