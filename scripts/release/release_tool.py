@@ -1,9 +1,9 @@
 """Release publication and promotion steps for the trusted release workflow.
 
 Run only from `.github/workflows/release.yml` on trusted `main` events. The tool never
-creates versions or tags: release-please owns them. It publishes the OCI chart for
-releases that are not yet in GHCR, reusing the SHA-tagged images that CI already
-published, and opens (never merges) the k3s-infrastructure promotion PR.
+creates versions: release-please owns them. It publishes version aliases for the
+SHA-tagged images that CI already published and the OCI chart, then opens (never
+merges) the k3s-infrastructure promotion PR.
 
 Subcommands:
     publish: Publish charts for existing release-please releases that are missing in GHCR.
@@ -23,7 +23,7 @@ import tarfile
 import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import yaml
 
@@ -37,7 +37,6 @@ IMAGE_COMPONENTS = ("api", "web")
 REQUIRED_PLATFORMS = frozenset({"linux/amd64", "linux/arm64"})
 INFRA_REPO = f"{OWNER}/k3s-infrastructure"
 INFRA_BASE_BRANCH = "main"
-INFRA_HELMRELEASE_PATH = f"kubernetes/apps/{CHART_NAME}/helmrelease.yaml"
 INFRA_HELMRELEASE_NAME = CHART_NAME
 INFRA_HELMRELEASE_NAMESPACE = CHART_NAME
 RECENT_RELEASES = 10
@@ -59,6 +58,10 @@ class ReleaseError(Exception):
 
 class ImagesNotPublished(ReleaseError):
     """CI has not published the SHA-tagged images for a release commit."""
+
+
+class ImageTagNotFound(ReleaseError):
+    """A version tag does not exist in the registry."""
 
 
 def run_command(cmd: Sequence[str]) -> subprocess.CompletedProcess:
@@ -189,15 +192,18 @@ class Image:
     digest: str
 
 
-def inspect_image(runner: Runner, component: str, source_sha: str) -> Image:
-    """Verify CI's SHA-tagged multi-arch image for one component.
+def inspect_image(
+    runner: Runner, component: str, source_sha: str, tag: str | None = None
+) -> Image:
+    """Verify a multi-arch image index against the expected source revision.
 
     Raises:
         ImagesNotPublished: The SHA tag does not exist.
+        ImageTagNotFound: The requested version tag does not exist.
         ReleaseError: The image lacks a required platform or the source revision.
     """
     repository = f"ghcr.io/{OWNER}/{CHART_NAME}-{component}"
-    ref = f"{repository}:{source_sha}"
+    ref = f"{repository}:{tag or source_sha}"
     cmd = [
         "docker",
         "buildx",
@@ -210,6 +216,8 @@ def inspect_image(runner: Runner, component: str, source_sha: str) -> Image:
     result = runner(cmd)
     if result.returncode != 0:
         if "not found" in result.stderr:
+            if tag:
+                raise ImageTagNotFound(f"image version tag {ref} does not exist")
             raise ImagesNotPublished(f"CI has not published {ref}")
         raise ReleaseError(f"could not inspect {ref}: {result.stderr.strip()}")
     manifest = json.loads(result.stdout)
@@ -228,6 +236,34 @@ def inspect_image(runner: Runner, component: str, source_sha: str) -> Image:
     if not DIGEST_RE.fullmatch(digest):
         raise ReleaseError(f"{ref} returned an invalid digest {digest!r}")
     return Image(component, repository, digest)
+
+
+def publish_image_version(
+    runner: Runner, image: Image, version: str, source_sha: str
+) -> None:
+    """Create a version alias for the verified index, never replacing a different one."""
+    ref = f"{image.repository}:{version}"
+    try:
+        existing = inspect_image(runner, image.component, source_sha, version)
+    except ImageTagNotFound:
+        _checked(
+            runner,
+            [
+                "docker",
+                "buildx",
+                "imagetools",
+                "create",
+                "--tag",
+                ref,
+                f"{image.repository}@{image.digest}",
+            ],
+        )
+        existing = inspect_image(runner, image.component, source_sha, version)
+    if existing.digest != image.digest:
+        raise ReleaseError(
+            f"{ref} already points to {existing.digest}, expected {image.digest}; "
+            "refusing to overwrite the version tag"
+        )
 
 
 def chart_exists(runner: Runner, version: str) -> bool:
@@ -377,6 +413,8 @@ def publish_release(runner: Runner, release: Release, workdir: Path) -> str:
     dist = workdir / "dist"
     dist.mkdir()
     _checked(runner, ["helm", "package", str(chart_dir), "--destination", str(dist)])
+    for image in images:
+        publish_image_version(runner, image, release.version, release.sha)
     package = dist / f"{CHART_NAME}-{release.version}.tgz"
     result = runner(["helm", "push", str(package), CHART_REGISTRY])
     if result.returncode != 0:
@@ -437,7 +475,7 @@ def update_helmrelease(text: str, version: str) -> tuple[str, str]:
     ]
     if len(targets) != 1:
         raise ReleaseError(
-            f"{INFRA_HELMRELEASE_PATH} must contain exactly one HelmRelease "
+            "the configured file must contain exactly one HelmRelease "
             f"{INFRA_HELMRELEASE_NAMESPACE}/{INFRA_HELMRELEASE_NAME}"
         )
     doc = documents[targets[0]]
@@ -453,7 +491,12 @@ def update_helmrelease(text: str, version: str) -> tuple[str, str]:
 
 
 def promotion_body(
-    version: str, source_sha: str, chart_digest: str, previous: str, run_url: str
+    version: str,
+    source_sha: str,
+    chart_digest: str,
+    previous: str,
+    run_url: str,
+    target_path: str,
 ) -> str:
     """Render the promotion PR body with the k3s-infrastructure PR template headings."""
     return f"""## Summary
@@ -468,7 +511,7 @@ Not applicable: automated promotion of release
 
 ## What changed
 
-- `{INFRA_HELMRELEASE_PATH}`: `spec.chart.spec.version` `{previous}` -> `{version}`.
+- `{target_path}`: `spec.chart.spec.version` `{previous}` -> `{version}`.
 - Chart: `{CHART_REF}:{version}` (`{chart_digest}`); its images and `appVersion` pin source
   commit `{source_sha}`.
 - Guidance updated? not applicable
@@ -508,7 +551,9 @@ Release run: {run_url}
 """
 
 
-def promote(runner: Runner, infra_dir: Path, version: str, run_url: str) -> str:
+def promote(
+    runner: Runner, infra_dir: Path, version: str, run_url: str, target_path: str
+) -> str:
     """Open the promotion PR for a published chart from a k3s-infrastructure checkout.
 
     Returns:
@@ -519,11 +564,26 @@ def promote(runner: Runner, infra_dir: Path, version: str, run_url: str) -> str:
             HelmRelease file), the file does not match the contract, or a promotion
             branch exists without an open PR.
     """
+    parts = PurePosixPath(target_path)
+    if (
+        not target_path
+        or "\\" in target_path
+        or parts.is_absolute()
+        or ".." in parts.parts
+        or parts.parts[:2] != ("kubernetes", "apps")
+        or parts.suffix not in {".yaml", ".yml"}
+    ):
+        raise ReleaseError(
+            "configure a HelmRelease YAML path under kubernetes/apps; "
+            f"chart {version} is NOT promoted"
+        )
+    target = (infra_dir / parts).resolve()
+    if not target.is_relative_to(infra_dir.resolve()):
+        raise ReleaseError("the configured HelmRelease path leaves the checkout")
     source_sha, chart_digest = published_chart(runner, version)
-    target = infra_dir / INFRA_HELMRELEASE_PATH
     if not target.is_file():
         raise ReleaseError(
-            f"{INFRA_HELMRELEASE_PATH} does not exist in {INFRA_REPO}: first onboarding has "
+            f"{target_path} does not exist in {INFRA_REPO}: first onboarding has "
             f"not merged. Chart {version} is published but NOT promoted; the reviewed "
             "first-onboarding change must pin a published version before automated "
             "promotion can succeed."
@@ -531,9 +591,7 @@ def promote(runner: Runner, infra_dir: Path, version: str, run_url: str) -> str:
     text = target.read_text(encoding="utf-8")
     updated, previous = update_helmrelease(text, version)
     if updated == text:
-        return (
-            f"{INFRA_HELMRELEASE_PATH} already pins {version}; no promotion PR needed"
-        )
+        return f"{target_path} already pins {version}; no promotion PR needed"
 
     branch = f"automation/{CHART_NAME}-chart-{version}"
     list_cmd = [
@@ -557,12 +615,14 @@ def promote(runner: Runner, infra_dir: Path, version: str, run_url: str) -> str:
     target.write_text(updated, encoding="utf-8")
     title = f"chore({CHART_NAME}): promote {CHART_NAME} chart {version}"
     _checked(runner, [*git, "switch", "-c", branch])
-    _checked(runner, [*git, "add", INFRA_HELMRELEASE_PATH])
+    _checked(runner, [*git, "add", "--", target_path])
     _checked(
         runner, [*git, "commit", "-m", title, "-m", f"Source: {APP_REPO}@{source_sha}"]
     )
     _checked(runner, [*git, "push", "origin", f"HEAD:refs/heads/{branch}"])
-    body = promotion_body(version, source_sha, chart_digest, previous, run_url)
+    body = promotion_body(
+        version, source_sha, chart_digest, previous, run_url, target_path
+    )
     body_file = infra_dir.parent / "promotion-body.md"
     body_file.write_text(body, encoding="utf-8")
     create_cmd = [
@@ -595,6 +655,7 @@ def main(argv: Sequence[str] | None = None, runner: Runner = run_command) -> int
     promote_cmd.add_argument("--infra-dir", type=Path, required=True)
     promote_cmd.add_argument("--version", required=True)
     promote_cmd.add_argument("--run-url", required=True)
+    promote_cmd.add_argument("--helmrelease-path", required=True)
     args = parser.parse_args(argv)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     output = os.environ.get("GITHUB_OUTPUT")
@@ -613,7 +674,13 @@ def main(argv: Sequence[str] | None = None, runner: Runner = run_command) -> int
             _append(summary, f"## Chart publication\n\n{report}")
             print(json.dumps(published))
         else:
-            outcome = promote(runner, args.infra_dir, args.version, args.run_url)
+            outcome = promote(
+                runner,
+                args.infra_dir,
+                args.version,
+                args.run_url,
+                args.helmrelease_path,
+            )
             _append(summary, f"## Promotion\n\n{outcome}\n")
             print(outcome)
     except ReleaseError as error:

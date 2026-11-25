@@ -19,14 +19,15 @@ missing first-onboarding HelmRelease for a successful promotion.
   permissions and the workflow default is none.
 - Chart publication reuses CI's `naileditkitchen-{api,web}:<full SHA>` images: it verifies both
   platforms and the revision annotation, then packages the chart from the release commit with
-  `appVersion` set to the full SHA and image tags and index digests pinned. It publishes
+  `appVersion` set to the full SHA and image tags and index digests pinned. It also creates
+  `X.Y.Z` image aliases to the same indexes, refusing to overwrite conflicting aliases. It publishes
   `oci://ghcr.io/dylanwhitetech/charts/naileditkitchen:X.Y.Z`, never overwrites a published
   version, and reconciles every recent release whose chart is missing.
 - Promotion uses `INFRA_PR_TOKEN` to open, never merge, a PR in
-  `dylanwhitetech/k3s-infrastructure` that bumps `spec.chart.spec.version` in
-  `kubernetes/apps/naileditkitchen/helmrelease.yaml`. A missing file (first onboarding not merged)
-  fails as "published but NOT promoted"; downgrades are refused. Rollback is a reviewed revert of the
-  promotion PR plus the migration/backup recovery procedure.
+  `dylanwhitetech/k3s-infrastructure` that bumps `spec.chart.spec.version` in the HelmRelease
+  file selected by the owner through `NIK_HELMRELEASE_PATH` after onboarding. An unset path or a
+  missing file (first onboarding not merged) fails promotion; downgrades are refused. Rollback is a
+  reviewed revert of the promotion PR plus the migration/backup recovery procedure.
 - The repository owner owns `INFRA_PR_TOKEN` scope, expiry and renewal, verified at launch and at
   each renewal.
 - The logic lives in a tested script (`scripts/release`), not inline workflow shell.

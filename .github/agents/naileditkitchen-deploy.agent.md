@@ -21,11 +21,10 @@ directly.
 
 The app, CI with SHA-tagged images and the release automation exist: release-please, the trusted
 `Release` workflow that publishes `oci://ghcr.io/dylanwhitetech/charts/naileditkitchen` and opens
-(never merges) promotion PRs. See `docs/releases.md`. Promotion targets
-`kubernetes/apps/naileditkitchen/helmrelease.yaml` in the infra repo, which exists only after the
-reviewed first-onboarding change merges; until then promotion reports "published but NOT
-promoted". This is a snapshot: re-check both repositories, published releases and GHCR before
-work; a workflow or bootstrap directory is not evidence of a published or deployed app.
+(never merges) promotion PRs. See `docs/releases.md`. Promotion uses the actual HelmRelease path
+set in `NIK_HELMRELEASE_PATH` after reviewed first onboarding; it fails if the path is unset or
+the file does not exist. Re-check both repositories, published releases and GHCR before work;
+a workflow or bootstrap directory is not evidence of a published or deployed app.
 
 ## Release flow
 
@@ -35,8 +34,8 @@ successful, and never publish, tag, release or merge yourself.
 
 1. Verify the release PR, tag and changelog release-please created, and that `CI` succeeded for
    the release commit.
-2. Verify the `Release` run published the chart version and that it pins the release commit's
-   SHA-tagged multi-arch (amd64/arm64) images by digest.
+2. Verify the `Release` run published the chart and versioned multi-arch (amd64/arm64) images,
+   and that the chart pins the release commit's image indexes by digest.
 3. Verify the promotion PR it opened in `dylanwhitetech/k3s-infrastructure`, or report its failure
    (first onboarding not merged, `INFRA_PR_TOKEN` missing or expired). Retry only through the
    documented manual run. A human merges the PR.

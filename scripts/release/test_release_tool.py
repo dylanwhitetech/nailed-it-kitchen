@@ -11,6 +11,7 @@ SHA = "a" * 40
 OTHER_SHA = "b" * 40
 DIGEST = "sha256:" + "1" * 64
 CHART_DIGEST = "sha256:" + "2" * 64
+TARGET_PATH = "kubernetes/apps/naileditkitchen/helmrelease.yaml"
 
 CHART_YAML = """apiVersion: v2
 name: naileditkitchen
@@ -153,6 +154,57 @@ def test_inspect_image_rejects_missing_or_wrong_images(result, error):
         rt.inspect_image(FakeRunner([("docker", result)]), "api", SHA)
 
 
+def test_publish_image_version_creates_and_verifies_alias():
+    image = IMAGES[0]
+    responses = iter(
+        [done(1, stderr="not found"), done(), done(stdout=image_manifest())]
+    )
+    runner = FakeRunner([("docker buildx", lambda cmd: next(responses))])
+    rt.publish_image_version(runner, image, "0.2.0", SHA)
+    assert runner.calls[1] == [
+        "docker",
+        "buildx",
+        "imagetools",
+        "create",
+        "--tag",
+        f"{image.repository}:0.2.0",
+        f"{image.repository}@{DIGEST}",
+    ]
+    assert runner.calls[2][4] == f"{image.repository}:0.2.0"
+
+
+def test_publish_image_version_never_overwrites_existing_alias():
+    image = IMAGES[0]
+    runner = FakeRunner([("docker buildx", done(stdout=image_manifest()))])
+    rt.publish_image_version(runner, image, "0.2.0", SHA)
+    assert len(runner.calls) == 1
+    wrong = image_manifest().replace(DIGEST, CHART_DIGEST)
+    runner = FakeRunner([("docker buildx", done(stdout=wrong))])
+    with pytest.raises(rt.ReleaseError, match="refusing to overwrite"):
+        rt.publish_image_version(runner, image, "0.2.0", SHA)
+    assert len(runner.calls) == 1
+
+
+def test_publish_image_version_verifies_alias_after_creation():
+    responses = iter(
+        [
+            done(1, stderr="not found"),
+            done(),
+            done(stdout=image_manifest().replace(DIGEST, CHART_DIGEST)),
+        ]
+    )
+    runner = FakeRunner([("docker buildx", lambda cmd: next(responses))])
+    with pytest.raises(rt.ReleaseError, match="refusing to overwrite"):
+        rt.publish_image_version(runner, IMAGES[0], "0.2.0", SHA)
+
+
+def test_missing_alias_after_creation_is_not_mistaken_for_missing_ci_image():
+    responses = iter([done(1, stderr="not found"), done(), done(1, stderr="not found")])
+    runner = FakeRunner([("docker buildx", lambda cmd: next(responses))])
+    with pytest.raises(rt.ImageTagNotFound, match="image version tag"):
+        rt.publish_image_version(runner, IMAGES[0], "0.2.0", SHA)
+
+
 def test_chart_exists_distinguishes_missing_from_errors():
     assert rt.chart_exists(FakeRunner([("helm", done())]), "0.1.0")
     assert not rt.chart_exists(
@@ -223,6 +275,8 @@ def git_archive(cmd):
 
 
 def release_runner(published_versions, image_shas=(SHA, OTHER_SHA)):
+    aliases = {}
+
     def commit(cmd):
         return done(stdout=(OTHER_SHA if "v0.1.0" in cmd[2] else SHA) + "\n")
 
@@ -231,10 +285,18 @@ def release_runner(published_versions, image_shas=(SHA, OTHER_SHA)):
         return done() if found else done(1, stderr="x: not found")
 
     def inspect(cmd):
-        sha = cmd[4].rsplit(":", 1)[1]
+        ref = cmd[4]
+        tag = ref.rsplit(":", 1)[1]
+        sha = aliases.get(ref, tag)
         if sha not in image_shas:
             return done(1, stderr="ERROR: not found")
         return done(stdout=image_manifest(revision=sha))
+
+    def create(cmd):
+        ref = cmd[cmd.index("--tag") + 1]
+        tag = ref.rsplit(":", 1)[1]
+        aliases[ref] = OTHER_SHA if tag == "0.1.0" else SHA
+        return done()
 
     return FakeRunner(
         [
@@ -244,7 +306,8 @@ def release_runner(published_versions, image_shas=(SHA, OTHER_SHA)):
             ),
             ("gh api repos/o/r/commits", commit),
             ("helm show chart", show),
-            ("docker buildx", inspect),
+            ("docker buildx imagetools inspect", inspect),
+            ("docker buildx imagetools create", create),
             ("git archive", git_archive),
             ("helm lint", done()),
             ("helm package", done()),
@@ -261,6 +324,7 @@ def test_publish_reconciles_missing_versions_oldest_first_and_skips_published():
     ]
     assert [call[-1] for call in runner.ran("helm show chart")] == ["0.1.0", "0.2.0"]
     assert len(runner.ran("helm push")) == 1
+    assert len(runner.ran("docker buildx imagetools create")) == 2
 
     runner = release_runner(published_versions=set())
     assert [item["version"] for item in rt.publish(runner, "o/r", SHA)] == [
@@ -323,7 +387,7 @@ def promote_runner(open_pr="", remote_branch="", published=True):
 
 def infra_checkout(tmp_path, text=HELMRELEASE):
     infra = tmp_path / "infra"
-    target = infra / rt.INFRA_HELMRELEASE_PATH
+    target = infra / TARGET_PATH
     target.parent.mkdir(parents=True)
     target.write_text(text, encoding="utf-8")
     return infra, target
@@ -332,19 +396,29 @@ def infra_checkout(tmp_path, text=HELMRELEASE):
 def test_promote_without_onboarded_helmrelease_fails_loudly(tmp_path):
     (tmp_path / "infra").mkdir()
     with pytest.raises(rt.ReleaseError, match="published but NOT promoted"):
-        rt.promote(promote_runner(), tmp_path / "infra", "0.2.0", "url")
+        rt.promote(promote_runner(), tmp_path / "infra", "0.2.0", "url", TARGET_PATH)
+
+
+@pytest.mark.parametrize(
+    "path", ["", "../outside.yaml", "/absolute.yaml", "kubernetes/apps/../../x.yaml"]
+)
+def test_promote_rejects_invalid_paths_before_registry_access(tmp_path, path):
+    runner = FakeRunner([])
+    with pytest.raises(rt.ReleaseError, match="configure a HelmRelease YAML path"):
+        rt.promote(runner, tmp_path / "infra", "0.2.0", "url", path)
+    assert runner.calls == []
 
 
 def test_promote_requires_a_published_chart(tmp_path):
     infra, _ = infra_checkout(tmp_path)
     with pytest.raises(rt.ReleaseError, match="not available"):
-        rt.promote(promote_runner(published=False), infra, "0.2.0", "url")
+        rt.promote(promote_runner(published=False), infra, "0.2.0", "url", TARGET_PATH)
 
 
 def test_promote_opens_a_pr_and_never_merges(tmp_path):
     infra, target = infra_checkout(tmp_path)
     runner = promote_runner()
-    outcome = rt.promote(runner, infra, "0.2.0", "https://run")
+    outcome = rt.promote(runner, infra, "0.2.0", "https://run", TARGET_PATH)
     assert outcome == "opened promotion PR https://github.com/o/infra/pull/7"
     assert '"0.2.0"' in target.read_text(encoding="utf-8")
     branch = "automation/naileditkitchen-chart-0.2.0"
@@ -364,16 +438,22 @@ def test_promote_opens_a_pr_and_never_merges(tmp_path):
 def test_promote_reports_existing_pr_and_noop(tmp_path):
     infra, target = infra_checkout(tmp_path)
     runner = promote_runner(open_pr="https://github.com/o/infra/pull/6\n")
-    assert rt.promote(runner, infra, "0.2.0", "url").endswith("pull/6")
+    assert rt.promote(runner, infra, "0.2.0", "url", TARGET_PATH).endswith("pull/6")
     assert target.read_text(encoding="utf-8") == HELMRELEASE
-    assert "already pins" in rt.promote(promote_runner(), infra, "0.1.0", "url")
+    assert "already pins" in rt.promote(
+        promote_runner(), infra, "0.1.0", "url", TARGET_PATH
+    )
 
 
 def test_promote_refuses_a_stale_branch_without_pr(tmp_path):
     infra, _ = infra_checkout(tmp_path)
     with pytest.raises(rt.ReleaseError, match="without an open PR"):
         rt.promote(
-            promote_runner(remote_branch="abc refs/heads/x"), infra, "0.2.0", "url"
+            promote_runner(remote_branch="abc refs/heads/x"),
+            infra,
+            "0.2.0",
+            "url",
+            TARGET_PATH,
         )
 
 
@@ -389,4 +469,41 @@ def test_main_writes_outputs_and_returns_failure(tmp_path, monkeypatch):
     )
     (tmp_path / "infra").mkdir()
     args = ["promote", "--infra-dir", str(tmp_path / "infra"), "--version", "0.2.0"]
-    assert rt.main([*args, "--run-url", "u"], promote_runner()) == 1
+    assert (
+        rt.main(
+            [*args, "--run-url", "u", "--helmrelease-path", TARGET_PATH],
+            promote_runner(),
+        )
+        == 1
+    )
+
+
+def test_release_workflow_guards_privileged_jobs():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load(
+        (root / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8"),
+        Loader=yaml.BaseLoader,
+    )
+    triggers = workflow["on"]
+    assert set(triggers) == {"workflow_run", "workflow_dispatch"}
+    assert triggers["workflow_run"]["workflows"] == ["CI"]
+    assert triggers["workflow_run"]["branches"] == ["main"]
+    guard = workflow["jobs"]["release-please"]["if"]
+    assert "github.event.workflow_run.conclusion == 'success'" in guard
+    assert "github.event.workflow_run.event == 'push'" in guard
+    assert (
+        "github.event.workflow_run.head_repository.full_name == github.repository"
+        in guard
+    )
+    assert (
+        "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+        in guard
+    )
+    assert workflow["permissions"] == {}
+    assert workflow["jobs"]["publish"]["needs"] == "release-please"
+    assert workflow["jobs"]["promote"]["needs"] == "publish"
+    ci = yaml.load(
+        (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"),
+        Loader=yaml.BaseLoader,
+    )
+    assert "release-tooling" in ci["jobs"]["image-publish"]["needs"]

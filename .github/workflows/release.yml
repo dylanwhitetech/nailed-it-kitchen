@@ -45,7 +45,7 @@ jobs:
           target-branch: main
 
   publish:
-    name: Publish chart
+    name: Publish images and chart
     needs: release-please
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -83,7 +83,7 @@ jobs:
           ACTOR: ${{ github.actor }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
-      - name: Publish missing chart versions
+      - name: Publish versioned images and missing chart versions
         id: publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -145,7 +145,8 @@ jobs:
           GH_TOKEN: ${{ secrets.INFRA_PR_TOKEN }}
           VERSION: ${{ inputs.promote_version || needs.publish.outputs.version }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HELMRELEASE_PATH: ${{ vars.NIK_HELMRELEASE_PATH }}
         run: |
           git -C infra config user.name "github-actions[bot]"
           git -C infra config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          python scripts/release/release_tool.py promote --infra-dir infra --version "$VERSION" --run-url "$RUN_URL"
+          python scripts/release/release_tool.py promote --infra-dir infra --version "$VERSION" --run-url "$RUN_URL" --helmrelease-path "$HELMRELEASE_PATH"

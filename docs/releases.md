@@ -11,7 +11,7 @@ flowchart LR
   CI --> RP[Release workflow: release-please PR]
   RP -- human merges --> TAG[vX.Y.Z tag + GitHub Release]
   TAG --> CI2[CI succeeds for the merge commit]
-  CI2 --> PUB[Chart X.Y.Z pushed to GHCR]
+  CI2 --> PUB[Images and chart X.Y.Z pushed to GHCR]
   PUB --> PR[Promotion PR in k3s-infrastructure]
   PR -- human merges --> FLUX[Flux upgrades the HelmRelease]
 ```
@@ -35,9 +35,9 @@ flowchart LR
   and the chart version are always the same number.
 - The release PR is titled `chore(main): release X.Y.Z` and updates `CHANGELOG.md`, `version.txt`,
   the manifest and the chart version. Keep that title as the squash message.
-- Images keep the full-commit-SHA tags that CI publishes; there are no version or `latest` image
-  tags. The published chart pins images by digest, so a chart version always runs exactly the
-  images CI built for the release commit.
+- CI publishes full-commit-SHA image tags. The release workflow copies each verified multi-arch
+  image index to a matching `X.Y.Z` tag without rebuilding or replacing a conflicting version
+  tag. There is no `latest` tag. The chart pins the same indexes by digest.
 
 ## The Release workflow
 
@@ -48,10 +48,12 @@ reach it.
 1. **Release PR and tag** (`contents`, `issues` and `pull-requests: write`): release-please opens
    or updates the release PR. When a merged release PR is on `main`, it creates the `vX.Y.Z` tag
    and GitHub Release at that merge commit.
-2. **Publish chart** (`packages: write`): for each recent release whose chart version is not in
-   GHCR, oldest first, it:
+2. **Publish images and chart** (`packages: write`): for each recent release whose chart version
+   is not in GHCR, oldest first, it:
    - verifies `ghcr.io/dylanwhitetech/naileditkitchen-{api,web}:<release commit SHA>` exist with
      `linux/amd64` and `linux/arm64` and that commit's revision annotation;
+   - creates `X.Y.Z` aliases for both verified image indexes and verifies their digests match;
+     existing conflicting tags fail instead of being overwritten;
    - extracts the chart from the release commit, sets `appVersion` to the full commit SHA and sets
      each image's tag and index digest (only in the packaged copy);
    - lints, packages and pushes `oci://ghcr.io/dylanwhitetech/charts/naileditkitchen:X.Y.Z`.
@@ -59,10 +61,10 @@ reach it.
    A published chart version is never overwritten. If a release commit's images are not published
    yet, the run defers it (a later CI success for that commit publishes it) unless that commit
    triggered the run, in which case the job fails.
-3. **Open promotion PR** (`INFRA_PR_TOKEN`): bumps `spec.chart.spec.version` in
-   `kubernetes/apps/naileditkitchen/helmrelease.yaml` of `dylanwhitetech/k3s-infrastructure` on
-   branch `automation/naileditkitchen-chart-X.Y.Z` and opens a PR using that repository's template.
-   It refuses downgrades, reports an already open PR, and fails if the branch exists without a PR.
+3. **Open promotion PR** (`INFRA_PR_TOKEN`): bumps `spec.chart.spec.version` in the HelmRelease
+   file configured by `NIK_HELMRELEASE_PATH` in `dylanwhitetech/k3s-infrastructure`, on branch
+   `automation/naileditkitchen-chart-X.Y.Z`, and opens a PR using that repository's template. It
+   refuses downgrades, reports an already open PR, and fails if the branch exists without a PR.
 
 Each job writes what it did to the run summary. A failure in a later job never removes an earlier
 artifact; rerun the workflow after fixing the cause.
@@ -86,7 +88,11 @@ not a successful promotion:
 1. Merge the release PR so `0.1.0` is published.
 2. Confirm the chart is pullable (see [Artifact visibility](#artifact-visibility)).
 3. A human reviews and merges the onboarding change in k3s-infrastructure pinned to `0.1.0`.
-4. Later releases open ordinary promotion PRs. Run the workflow with `promote_version` only if a
+4. The owner sets repository variable `NIK_HELMRELEASE_PATH` to the actual merged HelmRelease
+   file path relative to the infrastructure repository root. The proposed path is
+   `kubernetes/apps/naileditkitchen/helmrelease.yaml`; verify the merged file rather than assuming
+   it. An unset, invalid, or missing path fails promotion.
+5. Later releases open ordinary promotion PRs. Run the workflow with `promote_version` only if a
    newer version was published before onboarding merged.
 
 ## Promotion review and rollout
@@ -144,7 +150,8 @@ The repository owner owns this token. At launch and at each renewal, the owner v
 - its expiry date, and that a dated renewal reminder (an item in the owner's project or calendar,
   at least two weeks before expiry) exists;
 - after replacing the secret, a manual run with `promote_version` set to the current version reports
-  either an open PR or "already pins", proving access without changing anything.
+  either an open PR or "already pins", confirming chart and infrastructure read access. An
+  "already pins" result does not test push or PR creation permissions; verify those separately.
 
 When it expires, publication continues but promotion fails, so releases are published but NOT
 promoted until it is renewed.

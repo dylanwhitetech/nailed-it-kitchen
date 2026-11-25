@@ -187,7 +187,7 @@ jobs:
     name: Image publish (${{ matrix.component }})
     # Trusted pushes to main in this repository only, after every check passes.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dylanwhitetech/nailed-it-kitchen'
-    needs: [backend, frontend, recipes, chart]
+    needs: [backend, frontend, recipes, chart, release-tooling]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
