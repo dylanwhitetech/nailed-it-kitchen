@@ -118,6 +118,13 @@ acceptance criteria.
 
 ## Useful commands
 
+- Bound backlog reads with `gh --jq` selecting sections before fetching full bodies.
+- Preflight the full proposed label set against each target repo's label list before bulk updates.
+- After a failed `gh issue edit`, read back every field and reconcile only the known partial write.
+- Verify milestone membership via the issues endpoint, not `open_issues` counters.
+- Fully qualify every cross-repo reference as `owner/repo#N`, including in grouped lists.
+- In PowerShell compare `updatedAt` as a string via `--jq .updatedAt` (`ConvertFrom-Json` makes it a DateTime).
+
 ```sh
 gh issue list --repo OWNER/REPO --state all --search "keywords"
 gh label list --repo OWNER/REPO
