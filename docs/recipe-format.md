@@ -34,10 +34,10 @@ notes:
 | `instructions` | yes | 1–100 text lines, at most 2,000 characters each. The list position is the step number. |
 | `notes` | no | 1–100 text lines, at most 1,000 characters each (yield, equipment, tips). Omit when empty. |
 
-Every text value is a nonempty single line with no control characters or surrounding whitespace,
-and is already normalized (see below). Unknown fields are rejected. The **normalized recipe
-content** is the canonical paste-template text produced from the recipe (see
-`format_paste_template`) and must be at most **20,000 characters** (Unicode code points). The
+Every text value is a nonempty single line with no control characters, Unicode surrogate code
+points, or surrounding whitespace, and is already normalized (see below). Unknown fields are
+rejected. The **normalized recipe content** is the canonical paste-template text from
+`format_paste_template` and must be at most **20,000 characters** (Unicode code points). The
 request-wide 32 KiB cap is enforced separately by the submission API.
 
 ### Safe YAML

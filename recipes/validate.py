@@ -191,6 +191,8 @@ def validate_recipe(recipe: Any, *, slug_from_filename: str | None = None) -> li
 
     problems = []
     for location, value in _text_fields(recipe):
+        if any(0xD800 <= ord(char) <= 0xDFFF for char in value):
+            problems.append(f"{location}: contains a surrogate code point")
         if normalize_line(value) != value:
             problems.append(f"{location}: must be normalized (NFC, single spaces)")
     length = content_length(recipe)

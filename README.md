@@ -103,7 +103,7 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
 
 ## Run & test locally (Docker)
 
-> **Not implemented yet:** Compose and the backend container are beta implementation work.
+> **Not implemented yet:** Compose is beta integration work.
 > The Compose commands below are the intended contract, not evidence that the current checkout runs.
 > `.env.example` contains only the planned, disabled submission switch; no service reads it yet.
 
@@ -115,7 +115,7 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
    - Web: http://localhost:8080
    - API: http://localhost:8000 (docs at http://localhost:8000/api/docs)
    - Postgres: `localhost:5432`
-4. Run the backend, [frontend](docs/frontend.md) and
+4. Run the [backend](docs/backend.md), [frontend](docs/frontend.md) and
    [recipe](docs/recipe-format.md#validate-recipes-locally) checks documented with their implementation.
    The recipe checks require Python, not Docker.
    The optional Post-beta `local-preflight` skill is not required.
@@ -178,6 +178,7 @@ Currently present:
 
 ```text
 frontend/        React/Vite web app and its nginx image (see docs/frontend.md)
+backend/         FastAPI, migrations, recipe seeder and API image (see docs/backend.md)
 recipes/*.yaml   Reviewed plain-text recipes (docs/recipe-format.md)
 recipes/schema/  Recipe JSON Schema; recipes/validate.py validates and extracts
 recipes/source/  Original recipes used as test fixtures
@@ -186,9 +187,8 @@ guidance/        Lasting decisions (one record per decision)
 .github/         Copilot agents, skills, instructions, templates, workflows
 ```
 
-Planned, not present yet: `backend/` (FastAPI, migrations and seeder), and
-`deploy/chart/` (Helm chart). Their implementation will document the exact
-lint, test, build and startup commands; no placeholder Make targets are provided.
+Planned, not present yet: `deploy/chart/` (Helm chart). Its implementation will document
+the exact deployment commands; no placeholder Make targets are provided.
 
 ## Related repos
 

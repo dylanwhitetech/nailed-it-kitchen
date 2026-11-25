@@ -57,6 +57,89 @@ The server must generate safe branch/path names, add only one new validated reci
 file, avoid overwrites, recover retries without duplicate PRs and never merge.
 Credentials continue to use the existing secret-management process.
 
+## Recipe PR publisher
+
+`backend/app/github_publisher.py` implements the publisher. It has been tested only
+against a mocked GitHub API; it has **not** been run with the real App, so the
+permissions below are its requirement, not a verified capability.
+
+### Permission contract
+
+Each installation token is requested for only the configured repository with only
+`contents: write` and `pull_requests: write` (`metadata: read` is implicit). If
+the installation lacks either permission, GitHub refuses the token and the
+publisher fails with a permission error before any repository write; a token that
+comes back with fewer permissions or other repositories is also refused. The
+issues-only setup above therefore cannot publish.
+
+| Call | Permission |
+| --- | --- |
+| `POST /app/installations/{id}/access_tokens` | App JWT |
+| `GET /repos/{repo}/git/ref/heads/{base}`, `contents`, `compare`, `GET pulls` | Contents/Pull requests read |
+| `POST /repos/{repo}/git/refs` (new branch) | Contents write |
+| `PUT /repos/{repo}/contents/recipes/<slug>.yaml` without `sha` (add only) | Contents write |
+| `POST /repos/{repo}/pulls` | Pull requests write |
+
+The publisher never calls issue, label, assignment, workflow, merge or update-file
+endpoints. Contents write could technically change other files, so repository rules
+and the human review remain the enforcement for anything outside the publisher.
+
+### Behavior
+
+- The branch is `recipe/<slug>` and the
+  file is `recipes/<slug>.yaml`; the PR title is `Add recipe: <slug>`. Public input
+  cannot choose the repository, base, branch, path or title.
+- A slug already on the base branch is rejected. All submissions for a slug share
+  one branch; GitHub's atomic create-only file write reserves it for the first
+  content, rejecting different content without overwriting, even across processes.
+  Concurrent identical submissions reuse the file and GitHub's unique open PR for
+  the same head/base. No process-local lock is needed.
+- A partial or closed submission's branch continues to reserve that content.
+  To release a rejected slug for different content, a maintainer must close its PR
+  and delete the branch after ensuring no publisher request is still in flight.
+- Before opening the PR, the branch's diff against the base must add exactly that one
+  file. A retry resumes an existing branch/file and returns the existing open PR.
+- Transport errors, timeouts and HTTP 500/502/503/504 get three attempts with short
+  exponential backoff (10-second request timeout). Rate limits wait for GitHub's
+  `retry-after` or reset time only if it is at most 30 seconds; otherwise the
+  publisher raises an error carrying the wait. Other errors fail immediately.
+- The caller supplies the complete Markdown PR body; the publisher sends it verbatim.
+
+### Configuration
+
+| Variable | Meaning |
+| --- | --- |
+| `GITHUB_APP_ID` | App ID |
+| `GITHUB_APP_INSTALLATION_ID` | Installation ID |
+| `GITHUB_APP_PRIVATE_KEY_FILE` | Path to the mounted PEM private key (a secret file, never an environment value) |
+| `GITHUB_REPOSITORY` | `owner/name`; defaults to `dylanwhitetech/nailed-it-kitchen` |
+| `GITHUB_BASE_BRANCH` | PR base; defaults to `main` |
+
+Supply the key from the existing secret-management process. Installation tokens
+are kept only in memory and refreshed five minutes before expiry; App JWTs live
+nine minutes.
+
+### Secure diagnostics
+
+Publisher errors and logs contain the operation, HTTP status, attempt number and
+GitHub's `x-github-request-id`, never the key, JWT, token, recipe text or PR body.
+Use the request ID when asking GitHub support. Permission errors name the missing
+Contents and Pull requests write permissions.
+
+### Real verification
+
+After the permission update, the owner can open one benign verification PR from a
+trusted shell that has the configuration above:
+
+```bash
+python -m backend.app.github_publisher path/to/benign-recipe.yaml --confirm-real-pr
+```
+
+It prints only `created` or `reused` and the PR URL. Use a slug that is not on the
+base branch, since an existing slug is rejected. Inspect the entire diff, close
+the PR without merging unless it is the real launch submission, and delete its
+branch. Then record the verified capabilities in this document.
+
 ## References
 
 - [Registering a GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app)
