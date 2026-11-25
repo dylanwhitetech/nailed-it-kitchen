@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { mockApi } from "../testing/mockApi";
@@ -29,7 +29,7 @@ describe("RecipePage", () => {
     expect(screen.getByText("1 onion <script>alert(1)</script>")).toBeInTheDocument();
     const steps = screen.getAllByRole("listitem").filter((item) => item.closest("ol"));
     expect(steps.map((step) => step.textContent)).toEqual(["Chop everything.", "Simmer for 20 minutes.\nStir now and then."]);
-    expect(document.title).toBe("Tomato <b>soup</b> | Nailed It Kitchen");
+    await waitFor(() => expect(document.title).toBe("Tomato <b>soup</b> | Nailed It Kitchen"));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -46,7 +46,7 @@ describe("RecipePage", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Recipe not found" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Browse all recipes" })).toHaveAttribute("href", "/recipes");
-    expect(document.title).toBe("Recipe not found | Nailed It Kitchen");
+    await waitFor(() => expect(document.title).toBe("Recipe not found | Nailed It Kitchen"));
   });
 
   it("shows a retryable error without a success-shaped fallback", async () => {
