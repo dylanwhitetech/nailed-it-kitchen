@@ -1,0 +1,31 @@
+/*
+ * Theme variables: the main place to change the look of the app.
+ * Components use these names instead of hard-coded colors, fonts or spacing.
+ * Keep text/background pairs at WCAG AA contrast (4.5:1 for body text).
+ */
+:root {
+  --color-brand: #1f5f4a;
+  --color-brand-contrast: #ffffff;
+  --color-accent: #b4451f;
+  --color-text: #1d2521;
+  --color-text-muted: #4a554f;
+  --color-background: #fbfaf6;
+  --color-surface: #ffffff;
+  --color-border: #d8ddd8;
+  --color-focus: #1f5fbf;
+
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-heading: var(--font-body);
+  --font-size-base: 1.0625rem;
+  --line-height-base: 1.6;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.5rem;
+
+  --radius: 0.5rem;
+  --content-width: 46rem;
+  --focus-ring: 3px solid var(--color-focus);
+}
