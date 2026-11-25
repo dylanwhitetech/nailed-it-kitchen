@@ -1,11 +1,12 @@
-# Backend foundation
+# Backend API
 
 The Python 3.12 FastAPI service exposes `/api/healthz` (process liveness), `/api/readyz`
 (a PostgreSQL `SELECT 1` with a three-second connection timeout), `/api/metrics` (Prometheus
 request counts by method/status and request-duration histogram), and `/api/docs` (OpenAPI UI).
 Metrics contain no URL, recipe, or visitor labels and reset when the process restarts.
 Liveness does not depend on the database; readiness returns HTTP 503 when configuration or
-the database is unavailable. Reading and searching recipes are not implemented yet.
+the database is unavailable. Recipe discovery and detail reads require the configured database
+and return HTTP 503 on database failures rather than an empty success.
 Submission guards and the submission availability endpoint are described in
 [recipe submissions](submissions.md); they never affect liveness or readiness.
 
@@ -13,6 +14,66 @@ Set `DATABASE_URL` to a SQLAlchemy `postgresql+psycopg://` URL, supplying creden
 through the environment. Do not commit credentials. With no URL, liveness still works, while
 readiness and database commands fail. The deployment must provide database credentials; this
 service does not read `.env` files on its own.
+
+## Recipe discovery
+
+`GET /api/recipes` returns `{"items": [...], "next_offset": null}`. Each item includes
+`id`, `slug`, `title`, `view_count`, `created_at` and `updated_at`, without the full cooking
+text or internal search vector. Timestamps are timezone-aware ISO 8601 strings.
+
+- `limit` defaults to 20 and accepts integers from 1 through 100.
+- `offset` defaults to 0 and accepts integers from 0 through PostgreSQL's signed bigint
+  maximum (9,223,372,036,854,775,807). Fetch the returned `next_offset`
+  with the same `q` and `limit`; null means the last page. The API reads at most `limit + 1`
+  rows and does not count or load the whole catalog.
+- Pages always sort by PostgreSQL `lower(title)`, then slug, then ID, including search results.
+  This is stable for unchanged content; concurrent additions or title changes can shift offset
+  boundaries. Browsing is not a frozen catalog snapshot.
+- `q` defaults to empty and accepts at most 200 characters before trimming. Empty or
+  whitespace-only input browses all recipes. Nonempty input uses the existing GIN search
+  index and English `plainto_tsquery`: all searchable words must match somewhere in the title,
+  ingredients or instructions. English stemming applies (for example, `bake` matches `baking`);
+  stopwords are ignored. Punctuation is parsed as ordinary text, not operators, quoted phrases
+  or executable query syntax. Punctuation-only and stopword-only queries return an empty page.
+  Source and notes are not searched.
+
+`GET /api/most-viewed` returns a list of the same summaries, sorted by `view_count`
+descending, then slug and ID. Its `limit` defaults to 5 and accepts integers from 1 through 10.
+Zero-view recipes can appear when there are fewer viewed recipes than the limit. This is a
+separate landing-page section; `/api/recipes` remains A-Z, never popularity-sorted.
+The separate path leaves every valid recipe slug available for detail reads.
+Invalid query bounds/types return HTTP 422. Empty results return an empty list/page.
+Typed response schemas and parameters are available at `/api/docs`.
+
+`GET /api/recipes/{slug}` returns the summary metadata plus ordered `ingredients` and
+`instructions`, optional plain-text `source`, and optional ordered `notes`. Absent source/notes
+are JSON null. It does not expose graph data, tags, ratings or the search vector.
+Unknown slugs return HTTP 404.
+
+## Approximate views and read abuse
+
+Each successful detail GET performs one transactional `view_count = view_count + 1` update
+and returns the new count. PostgreSQL row locking prevents lost increments under concurrent
+reads or content reseeding. Views persist across process restarts and reseeding; reading
+does not change content timestamps. Database failures roll back instead of reporting success.
+The count describes server detail reads, **not unique people**: retries, crawlers, prefetches
+and repeated requests count again. No client identifier, IP address, cookie or browsing history
+is stored for counting, and there is no separate public view-write endpoint or browsing CAPTCHA.
+
+List, keyword search, most-viewed, health/readiness, metrics and failed detail requests do not
+increment views. HEAD is unsupported (HTTP 405) on recipe routes and never counts. Detail
+responses use `Cache-Control: no-store`, so intermediary caches must not replay an old
+counter-bearing response. The frontend should fetch detail only when opening a recipe,
+not prefetch every result.
+
+The API bounds page output and query length but currently has **no application read-rate
+limiter or per-visitor deduplication**. Repeated detail GETs can inflate popularity and consume
+database capacity. Before public exposure, operators must configure aggregate read-rate and
+bot controls at the Cloudflare/ingress boundary, including `/api/recipes/*`; choose thresholds
+from observed traffic/capacity and return 429 on throttled requests before they reach the API.
+Read throttling must not require visitor identity storage or a CAPTCHA. These edge controls
+and production thresholds are deployment work, not verified by local API tests. Turnstile and
+submission write-rate protection remain independent of browsing.
 
 ## Local commands
 

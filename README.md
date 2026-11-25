@@ -122,14 +122,17 @@ and Node for the checks below; host installations are optional.
    Both return `{"status":"ok"}`. Inspect seeded recipes:
    `docker compose exec db psql -U nik -d nik -c "SELECT slug, title FROM recipes ORDER BY slug;"`
    (substitute your `.env` user/database if changed). Reviewed recipes are stored in Postgres;
-   browsing/search endpoints are a separate beta workstream.
+   use `curl --fail http://localhost:8080/api/recipes` to browse the API. See
+   [backend](docs/backend.md) for browsing and search.
 5. Run backend lint, format, tests (including real migrations/seed and recipe validation):
    `docker compose --profile checks run --build --rm backend-checks`.
    Run frontend lint, type check, tests and production build:
    `docker compose --profile checks run --build --rm frontend-checks`.
    Backend tests use a separate disposable database, not browsing data.
    Native alternatives are in [backend](docs/backend.md), [frontend](docs/frontend.md) and
-   [recipe](docs/recipe-format.md#validate-recipes-locally) docs.
+   [recipe](docs/recipe-format.md#validate-recipes-locally) docs. [CI](docs/ci.md) runs
+   checks on every pull request and lists their local equivalents. The optional Post-beta
+   `local-preflight` skill is not required.
 6. Stop while retaining data: `docker compose --profile checks down`.
    Start again with `docker compose up --build`; migrations and seed rerun idempotently,
    retaining recipe identity and view counts.
@@ -207,7 +210,7 @@ compose.yaml     Local web/API/Postgres stack and opt-in checks
 recipes/*.yaml   Reviewed plain-text recipes (docs/recipe-format.md)
 recipes/schema/  Recipe JSON Schema; recipes/validate.py validates and extracts
 recipes/source/  Original recipes used as test fixtures
-docs/            Contributor, repository setup and recipe format
+docs/            Contributor, CI, repository setup and recipe format
 guidance/        Lasting decisions (one record per decision)
 .github/         Copilot agents, skills, instructions, templates, workflows
 ```
