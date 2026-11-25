@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { SubmitPage } from "./pages/SubmitPage";
 
 /** A top-level page: its path, navigation label and content. */
 export interface Route {
@@ -25,9 +26,7 @@ export const routes: readonly Route[] = [
   {
     path: "/submit",
     label: "Submit a recipe",
-    render: () => (
-      <PlaceholderPage title="Submit a recipe" description="Sharing your own recipe is coming soon." />
-    ),
+    render: () => <SubmitPage />,
   },
 ];
 
