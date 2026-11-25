@@ -2,6 +2,8 @@
 
 import logging
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
 from prometheus_client import (
@@ -16,14 +18,28 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.config import Settings
 from backend.app.database import create_database_engine
+from backend.app.recipes import RecipeDatabase
 from backend.app.recipes import router as recipes_router
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[dict[str, RecipeDatabase]]:
+    """Keep recipe connections pooled until this application lifespan ends."""
+    database = RecipeDatabase()
+    try:
+        yield {"recipe_database": database}
+    finally:
+        database.dispose()
+
+
 app = FastAPI(
     docs_url="/api/docs",
     redoc_url=None,
     openapi_url="/api/openapi.json",
     swagger_ui_oauth2_redirect_url="/api/docs/oauth2-redirect",
+    lifespan=lifespan,
 )
 app.include_router(recipes_router)
 registry = CollectorRegistry()

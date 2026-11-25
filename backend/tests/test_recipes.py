@@ -412,9 +412,7 @@ def test_concurrent_api_reads_and_reseed_preserve_durable_identity(
     ["/api/recipes", "/api/recipes?q=water", "/api/most-viewed", "/api/recipes/soup"],
 )
 @pytest.mark.parametrize("failure", ["configuration", "connect", "execute", "commit"])
-def test_database_failures_are_sanitized_503(
-    client, monkeypatch, caplog, path, failure
-):
+def test_database_failures_are_sanitized_503(monkeypatch, caplog, path, failure):
     from backend.app import recipes
 
     sql = "SELECT private_recipe_content FROM recipes"
@@ -475,11 +473,64 @@ def test_database_failures_are_sanitized_503(
         return engine
 
     monkeypatch.setattr(recipes, "create_database_engine", create)
-    response = client.get(path)
-    assert response.status_code == 503
-    assert response.json() == {"detail": "Recipe database is unavailable"}
+    with TestClient(app) as client:
+        response = client.get(path)
+        assert response.status_code == 503
+        assert response.json() == {"detail": "Recipe database is unavailable"}
+        assert not engine.disposed
     for marker in (sql, content, url):
         assert marker not in response.text
         assert marker not in caplog.text
     if failure != "configuration":
         assert engine.disposed
+
+
+def test_recipe_pool_reuses_connections_and_disposes_on_shutdown(seed, monkeypatch):
+    from backend.app import recipes
+
+    seed([recipe("soup")])
+    real_create = recipes.create_database_engine
+    engines = []
+    connections = []
+    disposed = []
+
+    def create(settings):
+        engine = real_create(settings)
+        engines.append(engine)
+        event.listen(engine, "connect", lambda *_: connections.append(1))
+        event.listen(engine, "engine_disposed", lambda _: disposed.append(1))
+        return engine
+
+    monkeypatch.setattr(recipes, "create_database_engine", create)
+    with TestClient(app) as client:
+        assert client.get("/api/recipes").status_code == 200
+        assert client.get("/api/most-viewed").status_code == 200
+        assert client.get("/api/recipes/soup").status_code == 200
+        assert len(engines) == 1
+        assert len(connections) == 1
+        assert not disposed
+    assert disposed == [1]
+
+
+def test_concurrent_first_requests_create_one_recipe_engine(seed, monkeypatch):
+    from backend.app import recipes
+
+    seed([recipe("soup")])
+    real_create = recipes.create_database_engine
+    engines = []
+    barrier = Barrier(8)
+
+    def create(settings):
+        engine = real_create(settings)
+        engines.append(engine)
+        return engine
+
+    monkeypatch.setattr(recipes, "create_database_engine", create)
+    with TestClient(app) as client, ThreadPoolExecutor(max_workers=8) as executor:
+
+        def fetch(_):
+            barrier.wait(timeout=10)
+            return client.get("/api/recipes").status_code
+
+        assert list(executor.map(fetch, range(8))) == [200] * 8
+        assert len(engines) == 1

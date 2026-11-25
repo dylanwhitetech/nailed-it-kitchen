@@ -3,11 +3,12 @@
 import logging
 from collections.abc import Iterator
 from datetime import datetime
+from threading import Lock
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Connection, func, select, update
+from sqlalchemy import Connection, Engine, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.config import Settings
@@ -68,23 +69,41 @@ DETAIL_COLUMNS = (
 )
 
 
-def recipe_connection() -> Iterator[Connection]:
-    """Provide one request transaction and close its database resources.
+class RecipeDatabase:
+    """Lazily own one bounded engine pool for an application lifespan."""
 
-    Database errors roll back the transaction and return 503. Do not log database
-    URLs, SQL parameters, recipe content, or visitor information.
+    def __init__(self) -> None:
+        self._engine: Engine | None = None
+        self._lock = Lock()
+
+    def engine(self) -> Engine:
+        """Create the engine once, including under concurrent first requests."""
+        with self._lock:
+            if self._engine is None:
+                self._engine = create_database_engine(Settings())
+            return self._engine
+
+    def dispose(self) -> None:
+        """Release pooled connections when the application shuts down."""
+        with self._lock:
+            if self._engine is not None:
+                self._engine.dispose()
+
+
+def recipe_connection(request: Request) -> Iterator[Connection]:
+    """Provide a request transaction from the application-lifetime pool.
+
+    Database errors roll back the transaction and return 503 without logging
+    database URLs, SQL parameters, recipe content, or visitor information.
     """
-    engine = None
     try:
-        engine = create_database_engine(Settings())
+        database: RecipeDatabase = request.state.recipe_database
+        engine = database.engine()
         with engine.begin() as connection:
             yield connection
     except (ValueError, SQLAlchemyError, OSError) as exc:
         logger.error("Recipe database request failed: %s", type(exc).__name__)
         raise HTTPException(503, "Recipe database is unavailable") from exc
-    finally:
-        if engine is not None:
-            engine.dispose()
 
 
 Database = Annotated[Connection, Depends(recipe_connection)]
