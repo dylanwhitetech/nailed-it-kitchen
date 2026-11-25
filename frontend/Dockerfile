@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build the static app on the native build platform (fast under buildx), then
 # copy the platform-independent files into a multi-arch, non-root nginx image.
-FROM --platform=$BUILDPLATFORM node:24-alpine AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
