@@ -14,7 +14,7 @@ Use GitHub-native tools only:
 - Dependabot version updates run weekly for each manifest that exists, with minor and
   patch updates grouped per ecosystem and major updates kept as separate PRs.
 - The dependency review action fails pull requests to `main` that introduce a
-  dependency with a high or critical vulnerability.
+  runtime, development or unknown-scope dependency with a high or critical vulnerability.
 - Workflows grant the minimum `GITHUB_TOKEN` permissions and pin third-party actions
   to full commit SHAs with a version comment; Dependabot proposes pin updates.
 - CodeQL uses repository default setup rather than a committed workflow. Its settings

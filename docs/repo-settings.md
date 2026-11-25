@@ -81,7 +81,7 @@ repository setting changed.
 | File | Behavior |
 | --- | --- |
 | [`.github/dependabot.yml`](../.github/dependabot.yml) | Weekly version updates for pip (`/backend`, `/recipes`), npm (`/frontend`), GitHub Actions (`/`) and Docker (`/backend`, `/frontend`). Minor and patch updates are grouped per ecosystem; major updates open separate PRs. Docker tags that are not version-like, such as `stable-alpine`, are not updated. |
-| [`.github/workflows/dependency-review.yml`](../.github/workflows/dependency-review.yml) | Runs `actions/dependency-review-action` (pinned to a commit SHA) on pull requests to `main` and fails when a change introduces a dependency with a high or critical vulnerability. The job token has only `contents: read` and the workflow does not check out code. |
+| [`.github/workflows/dependency-review.yml`](../.github/workflows/dependency-review.yml) | Runs `actions/dependency-review-action` (pinned to a commit SHA) on pull requests to `main` and fails when a change introduces a runtime, development or unknown-scope dependency with a high or critical vulnerability. The job token has only `contents: read` and the workflow does not check out code. |
 
 Dependabot version updates depend on the dependency graph, which GitHub enables for
 public repositories. The repository readback on 2026-11-25 reports Dependabot

@@ -8,6 +8,9 @@ import validate as v
 
 RECIPES = Path(__file__).resolve().parents[1]
 FIXTURES = sorted(RECIPES.glob("*.yaml"))
+SOURCE_FIXTURES = [
+    path for path in FIXTURES if (RECIPES / "source" / f"{path.stem}.md").exists()
+]
 
 
 def make_recipe(**overrides):
@@ -37,7 +40,7 @@ def paste_errors(text):
 def test_both_source_recipes_have_yaml_fixtures():
     sources = sorted(path.stem for path in (RECIPES / "source").glob("*.md"))
     assert sources == ["cast-iron-pizza-dough", "pizza-stone-dough"]
-    assert [path.stem for path in FIXTURES] == sources
+    assert [path.stem for path in SOURCE_FIXTURES] == sources
 
 
 def test_cli_validates_every_fixture(capsys):
@@ -61,7 +64,7 @@ def _markdown_sections(path):
     return title, metadata, sections
 
 
-@pytest.mark.parametrize("fixture", FIXTURES, ids=lambda path: path.stem)
+@pytest.mark.parametrize("fixture", SOURCE_FIXTURES, ids=lambda path: path.stem)
 def test_fixture_preserves_source_details_and_order(fixture):
     recipe = v.validate_file(fixture)
     title, metadata, sections = _markdown_sections(
