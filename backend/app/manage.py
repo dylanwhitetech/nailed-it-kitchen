@@ -2,18 +2,25 @@
 
 ``python -m backend.app.manage`` upgrades the schema to this image's Alembic head and then
 seeds the reviewed recipes. ``--wait-for-database SECONDS`` first waits for PostgreSQL to accept
-connections. ``python -m backend.app.manage wait-for-schema --timeout SECONDS`` only waits until
-the schema is ready for this image (used by API init containers) and never migrates.
+connections. ``python -m backend.app.manage wait-for-schema --timeout SECONDS`` waits until
+the schema is ready and, when configured by Helm, this release's migration/seed run
+has completed. It never migrates.
 
 Every command exits nonzero with a message on failure or timeout.
 """
 
 import argparse
+import json
 import logging
+import os
+import ssl
 import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import HTTPSHandler, ProxyHandler, Request, build_opener
 
 from alembic import command
 from alembic.config import Config
@@ -31,6 +38,7 @@ logger = logging.getLogger("backend.app.manage")
 # Session-level advisory lock serializing concurrent migration/seed runs on one database.
 MIGRATION_LOCK_ID = 7_412_025
 POLL_SECONDS = 5.0
+LIFECYCLE_TOKEN_DIR = Path("/var/run/secrets/naileditkitchen/lifecycle")
 
 
 def alembic_config() -> Config:
@@ -71,7 +79,10 @@ def wait_until(
                 return
             last_error = ""
         except (SQLAlchemyError, OSError) as exc:
-            last_error = f" (last error: {type(exc).__name__})"
+            reason = (
+                f"HTTP {exc.code}" if isinstance(exc, HTTPError) else type(exc).__name__
+            )
+            last_error = f" (last error: {reason})"
         if time.monotonic() >= deadline:
             raise TimeoutError(
                 f"timed out after {timeout:g}s waiting for {description}{last_error}"
@@ -90,29 +101,50 @@ def wait_for_database(engine: Engine, timeout: float, poll: float = POLL_SECONDS
     wait_until("the database to accept connections", timeout, check, poll)
 
 
-def wait_for_schema(engine: Engine, timeout: float, poll: float = POLL_SECONDS):
-    """Wait until the schema is at this image's head or at a newer revision."""
+def wait_for_schema(
+    engine: Engine,
+    timeout: float,
+    poll: float = POLL_SECONDS,
+    release: tuple[str, int] | None = None,
+    job_check: Callable[[], bool] | None = None,
+):
+    """Wait for a compatible schema and, if supplied, a release completion marker."""
     script = ScriptDirectory.from_config(alembic_config())
     state = {"value": "unknown"}
 
     def check() -> bool:
         with engine.connect() as connection:
             state["value"] = schema_state(connection, script)
-        return state["value"] in {"current", "newer"}
+            if state["value"] not in {"current", "newer"}:
+                return False
+            if release is None:
+                return True
+            complete = bool(
+                connection.scalar(
+                    text(
+                        "SELECT EXISTS (SELECT 1 FROM lifecycle_completions "
+                        "WHERE installation_id = :installation_id AND revision = :revision)"
+                    ),
+                    {"installation_id": release[0], "revision": release[1]},
+                )
+            )
+            return complete and (job_check is None or job_check())
 
     try:
-        wait_until("the schema to reach this image's head", timeout, check, poll)
+        wait_until("the schema and release completion", timeout, check, poll)
     except TimeoutError as exc:
         raise TimeoutError(f"{exc}; schema state: {state['value']}") from exc
     if state["value"] == "newer":
         logger.warning("database schema is newer than this image; continuing")
 
 
-def migrate_and_seed(engine: Engine) -> None:
+def migrate_and_seed(engine: Engine, release: tuple[str, int] | None = None) -> None:
     """Upgrade to head and seed under an advisory lock.
 
-    A database already migrated by a newer release is left untouched (no downgrade and no
-    seeding of older recipe content), so a rolled-back release can start.
+    A database already migrated by a newer release is not downgraded or seeded with older
+    content, so a rolled-back release can start. A supplied release marker is committed
+    only after migration and seeding succeed, or after intentionally skipping them for a
+    newer schema.
     """
     config = alembic_config()
     script = ScriptDirectory.from_config(config)
@@ -126,12 +158,21 @@ def migrate_and_seed(engine: Engine) -> None:
                 logger.warning(
                     "database schema is newer than this image; skipping migration and seed"
                 )
-                return
-            config.attributes["connection"] = connection
-            command.upgrade(config, "head")
-            connection.commit()
-            seed_recipes(engine)
-            logger.info("database migrated to head and recipes seeded")
+            else:
+                config.attributes["connection"] = connection
+                command.upgrade(config, "head")
+                connection.commit()
+                seed_recipes(engine)
+                logger.info("database migrated to head and recipes seeded")
+            if release is not None:
+                connection.execute(
+                    text(
+                        "INSERT INTO lifecycle_completions (installation_id, revision) "
+                        "VALUES (:installation_id, :revision) ON CONFLICT DO NOTHING"
+                    ),
+                    {"installation_id": release[0], "revision": release[1]},
+                )
+                connection.commit()
         finally:
             connection.rollback()
             connection.execute(
@@ -160,6 +201,100 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return args
 
 
+def release_from_environment() -> tuple[str, int] | None:
+    """Read the paired Helm release marker or fail on an incomplete configuration."""
+    installation_id = os.environ.get("LIFECYCLE_INSTALLATION_ID")
+    revision = os.environ.get("LIFECYCLE_REVISION")
+    if installation_id is None and revision is None:
+        return None
+    if not installation_id or len(installation_id) > 32 or not revision:
+        raise ValueError("both lifecycle installation ID and revision must be set")
+    try:
+        number = int(revision)
+    except ValueError as exc:
+        raise ValueError("lifecycle revision must be a positive integer") from exc
+    if number < 1:
+        raise ValueError("lifecycle revision must be a positive integer")
+    return installation_id, number
+
+
+def kubernetes_release_complete(
+    release: tuple[str, int],
+    namespace: str,
+    deployment: str,
+    job: str,
+    api_get: Callable[[str], dict | None],
+) -> bool:
+    """Require the current Job to finish; older pods may use their durable marker."""
+    namespace = quote(namespace, safe="")
+    deployment_path = (
+        f"/apis/apps/v1/namespaces/{namespace}/deployments/{quote(deployment, safe='')}"
+    )
+    current = api_get(deployment_path)
+    if current is None:
+        return False
+    annotations = (
+        current.get("spec", {})
+        .get("template", {})
+        .get("metadata", {})
+        .get("annotations", {})
+    )
+    revision = annotations.get("naileditkitchen.io/lifecycle-revision")
+    if not isinstance(revision, str) or not revision.isdecimal():
+        return False
+    if int(revision) != release[1]:
+        return True
+    job_path = f"/apis/batch/v1/namespaces/{namespace}/jobs/{quote(job, safe='')}"
+    current_job = api_get(job_path)
+    if current_job is None or current_job.get("metadata", {}).get("deletionTimestamp"):
+        return False
+    return any(
+        condition.get("type") == "Complete" and condition.get("status") == "True"
+        for condition in current_job.get("status", {}).get("conditions", [])
+    )
+
+
+def kubernetes_api_get(path: str) -> dict | None:
+    """Read one Kubernetes object using the init container's projected credentials."""
+    host = os.environ["KUBERNETES_SERVICE_HOST"]
+    if ":" in host:
+        host = f"[{host}]"
+    port = os.environ["KUBERNETES_SERVICE_PORT"]
+    token = (LIFECYCLE_TOKEN_DIR / "token").read_text(encoding="utf-8").strip()
+    request = Request(
+        f"https://{host}:{port}{path}", headers={"Authorization": f"Bearer {token}"}
+    )
+    context = ssl.create_default_context(cafile=str(LIFECYCLE_TOKEN_DIR / "ca.crt"))
+    opener = build_opener(ProxyHandler({}), HTTPSHandler(context=context))
+    try:
+        with opener.open(request, timeout=5) as response:
+            return json.load(response)
+    except HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def release_job_check(release: tuple[str, int]) -> Callable[[], bool]:
+    """Build the Kubernetes Job check required by a Helm API init container."""
+    names = (
+        "KUBERNETES_SERVICE_HOST",
+        "KUBERNETES_SERVICE_PORT",
+        "LIFECYCLE_NAMESPACE",
+        "LIFECYCLE_API_DEPLOYMENT",
+        "LIFECYCLE_JOB",
+    )
+    if not all(os.environ.get(name) for name in names):
+        raise ValueError("Kubernetes lifecycle Job check is not configured")
+    return lambda: kubernetes_release_complete(
+        release,
+        os.environ["LIFECYCLE_NAMESPACE"],
+        os.environ["LIFECYCLE_API_DEPLOYMENT"],
+        os.environ["LIFECYCLE_JOB"],
+        kubernetes_api_get,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the selected command and return a process exit status."""
     logging.basicConfig(
@@ -167,18 +302,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parse_args(argv)
     try:
+        release = release_from_environment()
+        job_check = (
+            release_job_check(release)
+            if args.command == "wait-for-schema" and release is not None
+            else None
+        )
         engine = create_database_engine(Settings())
     except ValueError as exc:
         logger.error("%s", exc)
         return 1
     try:
         if args.command == "wait-for-schema":
-            wait_for_schema(engine, args.timeout)
+            wait_for_schema(engine, args.timeout, release=release, job_check=job_check)
             logger.info("database schema is ready for this image")
         else:
             if args.wait_for_database:
                 wait_for_database(engine, args.wait_for_database)
-            migrate_and_seed(engine)
+            migrate_and_seed(engine, release=release)
     except TimeoutError as exc:
         logger.error("%s", exc)
         return 1

@@ -39,7 +39,11 @@ def test_manage_migrates_and_seeds_fresh_database(database):
     assert inspect(engine).get_table_names() == []
     manage = [sys.executable, "-m", "backend.app.manage"]
     subprocess.run(manage, cwd=ROOT, check=True)
-    assert set(inspect(engine).get_table_names()) == {"alembic_version", "recipes"}
+    assert set(inspect(engine).get_table_names()) == {
+        "alembic_version",
+        "lifecycle_completions",
+        "recipes",
+    }
     first = rows(engine)
     assert set(first) == {
         validate_file(path)["slug"] for path in RECIPES.glob("*.yaml")

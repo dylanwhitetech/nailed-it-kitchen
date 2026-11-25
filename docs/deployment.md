@@ -49,14 +49,23 @@ every install and upgrade applies these ordinary resources together:
 1. CloudNativePG creates the Cluster and its `-db-app` Secret.
 2. Job `<release>-migrate-<revision>` waits up to `migration.databaseWaitSeconds` for PostgreSQL,
    then runs Alembic `upgrade head` and the recipe seed under a PostgreSQL advisory lock. If the
-   database schema is newer than the image (a rollback), it leaves the database untouched.
-3. Each new API pod's `wait-for-schema` init container waits up to `api.schemaWaitSeconds` until the
-   schema is at or beyond its image's head. The API rolls with `maxUnavailable: 0`, so old pods
-   keep serving until new ones are ready on `/api/readyz`.
+   database schema is newer than the image (a rollback), it leaves the schema and recipes untouched.
+3. Each new API pod's `wait-for-schema` init container waits up to `api.schemaWaitSeconds` for
+   both a compatible schema and this installation and revision's completion marker. The Job
+   writes the marker only after successful migration and seeding, or after intentionally skipping
+   them for a newer schema. The init container also checks that the current revision's Kubernetes
+   Job has completed, so a Helm rollback cannot reuse an old marker before its recreated Job
+   completes. Older pods can restart from their marker when a newer revision is being rolled out.
+   The API rolls with `maxUnavailable: 0`, so old pods keep serving until new ones are ready on
+   `/api/readyz`.
 
 Helm `--wait --wait-for-jobs` (and Flux's default health checks) therefore succeed only after the database,
 the migration Job and the new pods are ready. Jobs are immutable, so each revision has a new Job
-and Helm deletes the previous revision's Job.
+and Helm deletes the previous revision's Job. The chart's `<release>-lifecycle` ConfigMap holds
+the installation identity used to distinguish markers after uninstall and reinstall. Helm must be
+able to read this ConfigMap during upgrades; do not delete or change it while a release is active.
+Only the init container receives a projected service-account token, with permission to read the
+API Deployment and current revision's migration Job. It fails closed if either check is unavailable.
 
 ## Recovery
 
@@ -64,10 +73,11 @@ and Helm deletes the previous revision's Job.
   New API pods stay in `Init` and old pods keep serving. Fix the cause and apply a new revision
   (for example a Flux reconcile or `helm upgrade`); the next revision creates a new Job.
 - **API pod stuck in `Init`:** the init container fails after `api.schemaWaitSeconds` and is
-  retried; check the migration Job first.
-- **Rollback to an older image:** the Job skips migration and seeding because the schema is newer;
-  the older API starts if its code is compatible with the newer schema. Schema downgrades are a
-  deliberate manual recovery with a tested backup (see the [backend guide](backend.md)).
+  retried; check the migration Job and its access to the Kubernetes API first.
+- **Rollback to an older image:** when the schema is newer, the Job skips migration and seeding
+  and records completion; the older API starts if its code is compatible with the newer schema.
+  Schema downgrades are a deliberate manual recovery with a tested backup (see the
+  [backend guide](backend.md)).
 - **Uninstall:** the Cluster and the backup PVC have `helm.sh/resource-policy: keep`, so
   uninstalling never deletes the database or backups. Delete them deliberately.
 
@@ -97,8 +107,10 @@ Restore a dump into an empty database with `pg_restore --clean --if-exists --no-
 applicability` job, see [CI](ci.md)) against a disposable kind cluster with CloudNativePG. It
 installs the chart, checks the Cluster, the completed migration Job, the web page, `/api/readyz`
 and the seeded recipe count, upgrades to a second image tag (new Job, old Job removed, rollout),
-then runs a backup Job and checks its output. To run it locally against a disposable cluster with
-the images loaded, always target an explicit context and never a shared cluster:
+then runs a backup Job and checks its output. Finally it holds the migration lock while rolling
+back and verifies that the new API pod stays in initialization and the old pod remains ready
+until the rollback Job can finish. To run it locally against a disposable cluster with the images
+loaded, always target an explicit context and never a shared cluster:
 
 ```bash
 KUBE_CONTEXT=kind-nik-chart API_REPOSITORY=naileditkitchen-api WEB_REPOSITORY=naileditkitchen-web \

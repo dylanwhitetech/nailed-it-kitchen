@@ -1,0 +1,14 @@
+{{- $name := printf "%s-lifecycle" (include "naileditkitchen.fullname" .) }}
+{{- $existing := lookup "v1" "ConfigMap" .Release.Namespace $name }}
+{{- $installationID := randAlphaNum 32 }}
+{{- if $existing }}
+{{- $installationID = required "existing lifecycle ConfigMap is missing installation-id" (index $existing.data "installation-id") }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "naileditkitchen.labels" (dict "root" . "component" "lifecycle") | nindent 4 }}
+data:
+  installation-id: {{ $installationID | quote }}

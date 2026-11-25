@@ -111,9 +111,14 @@ used before each Compose API start. It exits nonzero on any failure. The Helm ch
 migration/seed Job runs it as `python -m backend.app.manage --wait-for-database SECONDS`, which
 first waits (bounded) for PostgreSQL, holds a PostgreSQL advisory lock while migrating and
 seeding, and skips both with a warning when the database schema is newer than the image (a
-rollback). `python -m backend.app.manage wait-for-schema --timeout SECONDS` exits 0 once the
-schema is at or beyond the image's head and is the API pods' init container; both exit 1 with a
-message on timeout. See [deployment](deployment.md) for the ordering.
+rollback). Helm supplies paired `LIFECYCLE_INSTALLATION_ID` and `LIFECYCLE_REVISION` environment
+variables so the Job records completion for the specific installation and revision.
+`python -m backend.app.manage wait-for-schema --timeout SECONDS` exits 0 once the schema is at or
+beyond the image's head and, when these variables are present, that completion marker exists. It
+is the API pods' init container and checks Kubernetes Job completion for the active revision,
+preventing stale markers from bypassing a rollback Job. Both commands exit 1 with a message on
+timeout. Without the paired variables, existing Compose behavior is unchanged. See
+[deployment](deployment.md) for the ordering.
 
 Database integration tests require `TEST_DATABASE_URL` pointing to a **dedicated disposable
 PostgreSQL database**. Those tests create and drop tables; never use a shared or production

@@ -65,6 +65,17 @@ repository@digest when a digest is set, otherwise repository:tag with tag defaul
   value: {{ printf "postgresql+psycopg://%s@%s-rw:5432/%s" .Values.database.name (include "naileditkitchen.dbCluster" .) .Values.database.name | quote }}
 {{- end }}
 
+{{/* Shared installation identity and revision for migration and API readiness. */}}
+{{- define "naileditkitchen.lifecycleEnv" -}}
+- name: LIFECYCLE_INSTALLATION_ID
+  valueFrom:
+    configMapKeyRef:
+      name: {{ include "naileditkitchen.fullname" . }}-lifecycle
+      key: installation-id
+- name: LIFECYCLE_REVISION
+  value: {{ .Release.Revision | quote }}
+{{- end }}
+
 {{- define "naileditkitchen.containerSecurityContext" -}}
 allowPrivilegeEscalation: false
 readOnlyRootFilesystem: true

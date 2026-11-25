@@ -32,6 +32,7 @@ spec:
           command: ["python", "-m", "backend.app.manage", "--wait-for-database", {{ .Values.migration.databaseWaitSeconds | quote }}]
           env:
             {{- include "naileditkitchen.databaseEnv" . | nindent 12 }}
+            {{- include "naileditkitchen.lifecycleEnv" . | nindent 12 }}
           securityContext:
             {{- include "naileditkitchen.containerSecurityContext" . | nindent 12 }}
           resources:

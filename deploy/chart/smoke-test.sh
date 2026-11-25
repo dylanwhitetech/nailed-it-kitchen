@@ -40,9 +40,11 @@ install() {
 check_app() {
   # Distinct local ports per phase, so a slow-exiting forwarder cannot shadow the next check.
   local PORT=$1 API_PORT=$2
-  kc port-forward "svc/$RELEASE-web" "$PORT:8080" >/dev/null &
+  kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+    port-forward "svc/$RELEASE-web" "$PORT:8080" >/dev/null &
   local web=$!
-  kc port-forward "svc/$RELEASE-api" "$API_PORT:8000" >/dev/null &
+  kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+    port-forward "svc/$RELEASE-api" "$API_PORT:8000" >/dev/null &
   local api=$!
   sleep 3
   curl --fail --silent --show-error --max-time 10 --retry 5 --retry-all-errors "http://127.0.0.1:$PORT/" | grep -q '<div id="root">'
@@ -53,6 +55,7 @@ check_app() {
   local expected
   expected="$(find "$(dirname "$0")/../../recipes" -maxdepth 1 -name '*.yaml' | wc -l)"
   kill "$web" "$api" 2>/dev/null || true
+  wait "$web" "$api" 2>/dev/null || true
   echo "recipes served: $count (expected $expected)"
   [ "$count" -eq "$expected" ]
 }
@@ -74,6 +77,8 @@ spec:
       storage: 1Gi
 EOF
 install "$FIRST_TAG"
+installation_id="$(kc get configmap "$RELEASE-lifecycle" -o jsonpath='{.data.installation-id}')"
+[ -n "$installation_id" ]
 kc wait --for=condition=Ready "cluster.postgresql.cnpg.io/$RELEASE-db" --timeout=60s
 kc wait --for=condition=Complete "job/$RELEASE-migrate-1" --timeout=60s
 kc get secret "$RELEASE-db-app" >/dev/null
@@ -82,6 +87,10 @@ check_app 18080 18000
 
 echo "== Upgrade =="
 install "$SECOND_TAG"
+if [ "$(kc get configmap "$RELEASE-lifecycle" -o jsonpath='{.data.installation-id}')" != "$installation_id" ]; then
+  echo "lifecycle installation identity changed during upgrade" >&2
+  exit 1
+fi
 kc wait --for=condition=Complete "job/$RELEASE-migrate-2" --timeout=60s
 if kc get "job/$RELEASE-migrate-1" >/dev/null 2>&1; then
   echo "previous revision's migration Job was not removed" >&2
@@ -97,6 +106,42 @@ check_app 18081 18001
 echo "== Backup =="
 kc create job --from="cronjob/$RELEASE-backup" smoke-backup
 kc wait --for=condition=Complete job/smoke-backup --timeout=300s
-kc logs job/smoke-backup | tee /dev/stderr | grep -Eq '^wrote /backups/naileditkitchen-[0-9]{8}T[0-9]{6}Z\.dump$'
+backup_logs="$(kc logs job/smoke-backup)"
+printf '%s\n' "$backup_logs" >&2
+printf '%s\n' "$backup_logs" | grep -Eq '^wrote /backups/naileditkitchen-[0-9]{8}T[0-9]{6}Z\.dump$'
 
-echo "Chart fresh install, upgrade and backup smoke test passed."
+echo "== Rollback with migration blocked =="
+# Recreating revision 1 reuses its historical marker; the new Job must still finish.
+kc exec "$RELEASE-db-1" -c postgres -- psql -d naileditkitchen -c \
+  'SELECT pg_advisory_lock(7412025); SELECT pg_sleep(120);' >/dev/null 2>&1 &
+lock_pid=$!
+for attempt in $(seq 1 30); do
+  held="$(kc exec "$RELEASE-db-1" -c postgres -- psql -d naileditkitchen -tAc \
+    "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype='advisory' AND objid=7412025 AND granted);")"
+  [ "$held" = "t" ] && break
+  sleep 1
+done
+[ "$held" = "t" ]
+helm rollback "$RELEASE" 1 --kube-context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  --wait --wait-for-jobs --timeout 5m &
+rollback_pid=$!
+for attempt in $(seq 1 45); do
+  api_pods="$(kc get pods -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=api" \
+    -o jsonpath='{range .items[*]}{.spec.containers[0].image}{" "}{.status.containerStatuses[0].ready}{" "}{.status.containerStatuses[0].state.waiting.reason}{"\n"}{end}')"
+  if printf '%s\n' "$api_pods" | grep -Fq "$API_REPOSITORY:$FIRST_TAG false PodInitializing" &&
+     printf '%s\n' "$api_pods" | grep -Fq "$API_REPOSITORY:$SECOND_TAG true "; then
+    break
+  fi
+  sleep 2
+done
+printf '%s\n' "$api_pods" | grep -Fq "$API_REPOSITORY:$FIRST_TAG false PodInitializing"
+printf '%s\n' "$api_pods" | grep -Fq "$API_REPOSITORY:$SECOND_TAG true "
+kc exec "$RELEASE-db-1" -c postgres -- psql -d naileditkitchen -tAc \
+  "SELECT pg_terminate_backend(pid) FROM pg_locks WHERE locktype='advisory' AND objid=7412025 AND granted AND pid<>pg_backend_pid();" | grep -qx t
+wait "$lock_pid" || true
+wait "$rollback_pid"
+kc wait --for=condition=Complete "job/$RELEASE-migrate-1" --timeout=60s
+kc rollout status "deployment/$RELEASE-api" --timeout=60s
+check_app 18082 18002
+
+echo "Chart fresh install, upgrade, backup and rollback smoke test passed."

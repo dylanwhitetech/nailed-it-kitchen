@@ -10,7 +10,7 @@ another push cannot cancel its pending image publication.
 | `Backend` | PRs, `main` | Ruff lint and format check, then pytest against a disposable PostgreSQL 17 service. `TEST_DATABASE_URL` is set, so database tests run instead of being skipped. |
 | `Frontend` | PRs, `main` | `npm ci`, Oxlint (warnings fail), Vitest, then type check and production build. |
 | `Recipes` | PRs, `main` | Validates `recipes/*.yaml` against the plain recipe schema, runs the validator/fixture tests and Ruff. |
-| `Helm chart applicability` | PRs, `main` | `helm lint` and `helm template` with pinned Helm (including checks that an unreleased chart or a `latest` tag does not render), then a disposable kind cluster with a pinned CloudNativePG operator runs [`deploy/chart/smoke-test.sh`](../deploy/chart/smoke-test.sh): fresh install, upgrade and backup. |
+| `Helm chart applicability` | PRs, `main` | `helm lint` and `helm template` with pinned Helm (including checks that an unreleased chart or a `latest` tag does not render), then a disposable kind cluster with a pinned CloudNativePG operator runs [`deploy/chart/smoke-test.sh`](../deploy/chart/smoke-test.sh): fresh install, upgrade, backup and rollback. |
 | `Image build (api)`, `Image build (web)` | PRs | Buildx builds `linux/amd64` and `linux/arm64` images without pushing them. |
 | `Image publish (api)`, `Image publish (web)` | pushes to `main` | After every check above passes, builds both platforms and pushes one tag per image. |
 
@@ -86,6 +86,8 @@ tags and runs the smoke test described in the [deployment guide](deployment.md#s
 2. Upgrade to the second tag: a new revision Job completes, the previous Job is removed and both
    Deployments roll out to the new images.
 3. Backup: a Job created from the backup CronJob writes and verifies a dump.
+4. Rollback: a held migration lock keeps the old API serving while the new pod waits for the
+   recreated migration Job, even though its historical completion marker exists.
 
 To lint and render locally with Helm 3 (the smoke test needs a disposable cluster):
 

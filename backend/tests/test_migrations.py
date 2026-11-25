@@ -9,8 +9,15 @@ def test_upgrade_and_downgrade(database):
 
     engine, config = database
     command.upgrade(config, "head")
-    assert set(inspect(engine).get_table_names()) == {"alembic_version", "recipes"}
+    assert set(inspect(engine).get_table_names()) == {
+        "alembic_version",
+        "lifecycle_completions",
+        "recipes",
+    }
 
+    command.downgrade(config, "0001")
+    assert "lifecycle_completions" not in inspect(engine).get_table_names()
+    assert "recipes" in inspect(engine).get_table_names()
     command.downgrade(config, "base")
     assert "recipes" not in inspect(engine).get_table_names()
 

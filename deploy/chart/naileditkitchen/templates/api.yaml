@@ -35,10 +35,13 @@ spec:
       {{- include "naileditkitchen.selectorLabels" $labels | nindent 6 }}
   template:
     metadata:
+      annotations:
+        naileditkitchen.io/lifecycle-revision: {{ .Release.Revision | quote }}
       labels:
         {{- include "naileditkitchen.labels" $labels | nindent 8 }}
     spec:
       automountServiceAccountToken: false
+      serviceAccountName: {{ $fullname }}-lifecycle
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -53,6 +56,13 @@ spec:
           command: ["python", "-m", "backend.app.manage", "wait-for-schema", "--timeout", {{ .Values.api.schemaWaitSeconds | quote }}]
           env:
             {{- include "naileditkitchen.databaseEnv" . | nindent 12 }}
+            {{- include "naileditkitchen.lifecycleEnv" . | nindent 12 }}
+            - name: LIFECYCLE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: LIFECYCLE_API_DEPLOYMENT
+              value: {{ printf "%s-api" $fullname | quote }}
+            - name: LIFECYCLE_JOB
+              value: {{ printf "%s-migrate-%v" $fullname .Release.Revision | quote }}
           securityContext:
             {{- include "naileditkitchen.containerSecurityContext" . | nindent 12 }}
           resources:
@@ -60,6 +70,9 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: lifecycle-api
+              mountPath: /var/run/secrets/naileditkitchen/lifecycle
+              readOnly: true
       containers:
         - name: api
           image: {{ $image }}
@@ -145,6 +158,17 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        - name: lifecycle-api
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
         {{- if .Values.githubApp.enabled }}
         - name: github-app
           secret:
