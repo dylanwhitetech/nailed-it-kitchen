@@ -59,15 +59,11 @@ Copilot entry points and repository agents.
 
 ## 5. Start and test the app when available
 
-For now, there is no app to run: the Compose file, `.env.example`, application
-services, and their test commands are not yet present. Issue
-[#18](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/18) tracks the
-local Compose stack; backend, frontend, and preflight tests are tracked by
-[#15](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/15),
-[#16](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/16), and
-[#19](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/19).
+For now, there is no app to run: the Compose file, application services, and their
+test commands are not yet present. `.env.example` records the planned disabled
+submission switch but is not consumed by a service yet.
 
-Once those issues land, follow the current
+Once the stack is implemented, follow the current
 [Run & test locally (Docker)](../README.md#run--test-locally-docker) instructions
 before pushing. The planned workflow copies `.env.example` to `.env`, starts
 services with `docker compose up --build`, and runs the documented tests.
@@ -76,10 +72,8 @@ use it only when you intend to reset the local database.
 
 ### Turnstile configuration when implemented
 
-The owner confirmed the public site key for the `naileditkitchen` widget as
-`0x4AAAAAAGRU0eFMd1cnYD4J` in the
-[widget handoff](https://github.com/dylanwhitetech/k3s-infrastructure/issues/32#issuecomment-7145790745).
-Chart configuration is planned in [#25](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/25).
+The public production site key for the `naileditkitchen` widget is
+`0x4AAAAAAGRU0eFMd1cnYD4J`. Chart configuration is planned.
 
 For local development, use Cloudflare's visible, always-pass test site key
 `1x00000000000000000000AA` and always-pass test secret
@@ -92,9 +86,7 @@ configuration names are not implemented yet.
 
 ## 6. Work safely
 
-- Start from an issue, work on a branch, and open a pull request using the repository
-  template. Follow the branch, PR title, and commit conventions in the
-  [`AGENTS.md`](../AGENTS.md#branch-pr-title-and-commit-conventions).
+- Follow the issue-to-review workflow in [CONTRIBUTING.md](../CONTRIBUTING.md).
   A human CODEOWNER reviews and merges; agents never merge.
 - Never commit or share credentials, private keys, tokens, or real `.env` values.
   Ask an owner for any access you need; local setup should use placeholder values.
