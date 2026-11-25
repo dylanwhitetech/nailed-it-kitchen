@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  # Cancel superseded PR runs; every push to main runs to completion so each SHA is published.
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  # Cancel superseded PR runs; main pushes have independent groups so pending runs are not replaced.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

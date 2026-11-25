@@ -29,8 +29,9 @@ untrusted content, and the repository is public.
 ## Consequences
 - Pull requests get feedback before the chart exists, and a chart cannot merge behind a green check
   that never linted it.
-- Every `main` commit has immutable, reproducible image tags for promotion; storage grows with each
-  push, and pruning old untagged/unused versions is an owner GHCR task if it becomes necessary.
+- Passing `main` pushes have immutable image tags for promotion; independent concurrency groups
+  prevent newer pushes from replacing pending runs. Storage grows with each successful push, and
+  pruning old untagged/unused versions is an owner GHCR task if it becomes necessary.
 - Pinned SHAs need updates; Dependabot's GitHub Actions ecosystem is expected to propose them.
 - Multi-arch builds under QEMU make pull request checks slower than single-arch builds.
 

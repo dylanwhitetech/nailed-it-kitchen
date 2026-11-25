@@ -2,6 +2,8 @@
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every pull request and on every
 push to `main`. It has no path filters, so every check reports on every pull request.
+Superseded pull request runs are canceled; each `main` push has its own concurrency group so
+another push cannot cancel its pending image publication.
 
 | Check (job name) | Runs on | What it does |
 | --- | --- | --- |
