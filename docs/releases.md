@@ -43,7 +43,7 @@ flowchart LR
 
 The workflow starts only when the `CI` workflow succeeds for a push to `main` in this repository,
 or when it is dispatched manually on `main`. Pull request code, forks and failed CI runs never
-reach it.
+reach it. It fails before release-please runs if the reviewed chart is not present on `main`.
 
 1. **Release PR and tag** (`contents`, `issues` and `pull-requests: write`): release-please opens
    or updates the release PR. When a merged release PR is on `main`, it creates the `vX.Y.Z` tag

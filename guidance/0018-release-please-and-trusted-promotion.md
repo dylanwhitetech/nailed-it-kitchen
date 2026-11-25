@@ -16,7 +16,8 @@ missing first-onboarding HelmRelease for a successful promotion.
   hand tagging.
 - One trusted `Release` workflow runs only on a successful `CI` run for a push to `main` in this
   repository (`workflow_run`), or on manual dispatch on `main`. Each job has its own minimal
-  permissions and the workflow default is none.
+  permissions and the workflow default is none. The workflow fails before invoking release-please
+  if the reviewed chart has not merged.
 - Chart publication reuses CI's `naileditkitchen-{api,web}:<full SHA>` images: it verifies both
   platforms and the revision annotation, then packages the chart from the release commit with
   `appVersion` set to the full SHA and image tags and index digests pinned. It also creates

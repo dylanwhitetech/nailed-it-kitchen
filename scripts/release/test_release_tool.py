@@ -506,6 +506,20 @@ def test_release_workflow_guards_privileged_jobs():
         in guard
     )
     assert workflow["permissions"] == {}
+    steps = workflow["jobs"]["release-please"]["steps"]
+    gate = next(
+        i
+        for i, step in enumerate(steps)
+        if step.get("name") == "Require the reviewed chart"
+    )
+    release = next(
+        i
+        for i, step in enumerate(steps)
+        if step.get("uses", "").startswith("googleapis/release-please-action@")
+    )
+    assert gate < release
+    assert "deploy/chart/naileditkitchen/Chart.yaml" in steps[gate]["run"]
+    assert "exit 1" in steps[gate]["run"]
     assert workflow["jobs"]["publish"]["needs"] == "release-please"
     assert workflow["jobs"]["promote"]["needs"] == "publish"
     ci = yaml.load(
