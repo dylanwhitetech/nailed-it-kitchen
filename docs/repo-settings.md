@@ -20,7 +20,7 @@ they can be considered complete.
 | Copilot code review | `review_on_push=false`; `review_draft_pull_requests=false` (skip new-push and draft reviews; automatic reviews run on PR open/ready) | Active ruleset verified |
 | Dependabot | Vulnerability alerts enabled | Applied |
 | Secret scanning | Secret scanning and push protection enabled | Already enabled |
-| Code scanning | CodeQL default setup, `default` query suite, languages detected by GitHub (currently `actions`) | Applied 2026-11-25; read back via the code-scanning default-setup API |
+| Code scanning | CodeQL default setup, `default` query suite, weekly schedule, languages detected by GitHub | Applied 2026-11-25; agent-collected read-only API readback at 2026-11-25 07:09 UTC reports `state=configured` with `actions`, `javascript-typescript` (also reported as `javascript` and `typescript`) and `python`; the latest `main` analyses (commit `ca03afb`) for those three categories report 0 results, with 0 open alerts. Owner verification of the Python and JavaScript/TypeScript results is pending (see below) |
 | GitHub Actions | Default `GITHUB_TOKEN` permissions are read-only; token cannot approve PR reviews; fork PR approval policy is all outside contributors; `allowed_actions=all` | Verified; action allowlisting was not requested or changed |
 
 The active ruleset retains the existing CodeQL alert rule and repository-admin bypass.
@@ -28,8 +28,10 @@ That rule blocks merges until CodeQL has analysed the pull request, so CodeQL de
 setup must stay enabled; without it, pull requests stay blocked unless an admin bypasses.
 Default setup scans pull requests when they are opened or pushed to. A pull request
 opened before setup was enabled needs a new push to get a scan; closing and reopening
-it does not start one. GitHub adds Python and JavaScript/TypeScript automatically when
-that code lands; confirm them in the default-setup readback.
+it does not start one. GitHub added Python and JavaScript/TypeScript automatically after
+that code landed; the code-scanning analyses API shows `main` analyses for
+`/language:python`, `/language:javascript-typescript` and `/language:actions` at
+2026-11-25 05:57 UTC, each with zero results.
 The bypass preserves the repository owner's break-glass access. `CODEOWNERS` names
 `@dylanwhitetech` and `@ArthurW2`; both have repository write access, so both remain
 eligible to review. No required CI status checks are configured yet; the ruleset's
@@ -71,6 +73,21 @@ closure dates still take precedence. Reopen a mistakenly closed reminder until
 renewal is complete. Missed checks recover on the next run without skipping an
 overdue reminder.
 
+## Automated dependency checks (committed configuration)
+
+These are defined in code. Their presence in the repository is not evidence that a
+repository setting changed.
+
+| File | Behavior |
+| --- | --- |
+| [`.github/dependabot.yml`](../.github/dependabot.yml) | Weekly version updates for pip (`/backend`, `/recipes`), npm (`/frontend`), GitHub Actions (`/`) and Docker (`/backend`, `/frontend`). Minor and patch updates are grouped per ecosystem; major updates open separate PRs. Docker tags that are not version-like, such as `stable-alpine`, are not updated. |
+| [`.github/workflows/dependency-review.yml`](../.github/workflows/dependency-review.yml) | Runs `actions/dependency-review-action` (pinned to a commit SHA) on pull requests to `main` and fails when a change introduces a runtime, development or unknown-scope dependency with a high or critical vulnerability. The job token has only `contents: read` and the workflow does not check out code. |
+
+Dependabot version updates depend on the dependency graph, which GitHub enables for
+public repositories. The repository readback on 2026-11-25 reports Dependabot
+security updates as `disabled`; this change does not alter that setting, and
+Dependabot alerts remain enabled as recorded above.
+
 ## Unsupported controls and pending administrator actions
 
 These settings are **not represented as applied** here:
@@ -79,6 +96,8 @@ These settings are **not represented as applied** here:
 | --- | --- | --- |
 | Copilot custom content exclusion | Requested paths: `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and generated files | Unavailable in the current repository Settings UI, reported by the administrator; follow-up [#57](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/57) |
 | Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
+| CodeQL default setup | Owner confirms Python and JavaScript/TypeScript in Settings → Code security → Code scanning and reviews their analyses; record the date and result here | Pending owner verification; API readback above is agent-collected |
+| Required status checks | After the `dependency-review` check has run on `main` pull requests, decide whether to add it to the `main` ruleset's required checks, then re-export `.github/rulesets/main.json` | Pending owner decision; the required-check list is still empty |
 
 The collaborator-only issue-creation control is documented in GitHub's 2026
 changelog, including a triage-role exception. Its GraphQL readback now confirms
@@ -133,6 +152,9 @@ repository owner can recover from a ruleset lockout.
 - [GitHub REST API: Copilot cloud agent configuration](https://docs.github.com/en/rest/copilot/copilot-cloud-agent-management#get-copilot-cloud-agent-configuration-for-a-repository)
 - [GitHub REST API: Copilot content exclusion](https://docs.github.com/en/rest/copilot/copilot-content-exclusion)
 - [GitHub REST API: Update a code scanning default setup configuration](https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanning-default-setup-configuration)
+- [GitHub Docs: Dependabot options reference](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference)
+- [GitHub Docs: Configuring the dependency review action](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/configuring-the-dependency-review-action)
+- [GitHub Docs: Security hardening for GitHub Actions (pinning actions)](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions)
 - [GitHub Docs: Editing your configuration of default setup](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/manage-your-configuration/edit-default-setup)
 - [GitHub Docs: GITHUB_TOKEN permissions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication)
 - [GitHub Docs: Limiting interactions in your repository](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/limiting-interactions-in-your-repository)
