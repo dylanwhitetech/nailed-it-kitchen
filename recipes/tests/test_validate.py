@@ -115,6 +115,7 @@ def test_required_fields(field):
         ({"notes": []}, "notes: must have at least 1 entry"),
         ({"slug": "Toast_Bread"}, "slug: must be lowercase letters and digits"),
         ({"slug": "a--b"}, "slug: must be lowercase letters and digits"),
+        ({"slug": "toast\n"}, "slug: must be lowercase letters and digits"),
         ({"title": "Toast  bread"}, "title: must be normalized"),
         ({"ingredients": ["Cafe\u0301"]}, "ingredients[0]: must be normalized"),
     ],
@@ -131,6 +132,13 @@ def test_non_mapping_recipe_is_rejected():
 def test_slug_must_match_file_name():
     errors = v.validate_recipe(make_recipe(), slug_from_filename="bread")
     assert errors == ["slug: 'toast' must match the file name 'bread'.yaml"]
+
+
+def test_dump_rejects_slug_with_trailing_newline():
+    with pytest.raises(
+        v.RecipeError, match="slug: must be lowercase letters and digits"
+    ):
+        v.dump_recipe_yaml(make_recipe(slug="toast\n"))
 
 
 @pytest.mark.parametrize(
