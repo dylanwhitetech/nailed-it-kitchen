@@ -61,6 +61,23 @@ It contains the validator, schema and reviewed recipe files, runs as a non-root 
 `python -m backend.app.manage` as the container command with `DATABASE_URL` supplied securely.
 Compose and Helm orchestration are not implemented yet.
 
+## Recipe PR publisher
+
+`backend/app/github_publisher.py` turns one validated recipe into one new
+`recipes/<slug>.yaml` file on a server-generated branch and opens a PR for human review.
+It is a library for the submission endpoint, not a public route. Callers must apply
+Turnstile, rate limits, size limits and the submissions switch first, then call
+`RecipePublisher.from_settings().publish(recipe, pr_body=markdown)` with the complete
+Markdown PR body rendered from the recipe PR template. Repeating a call with the same
+recipe returns the same open PR. Configuration, permissions, retries and diagnostics are
+documented in [github-app.md](github-app.md). Tests use a mocked GitHub API and need no
+credentials.
+
+The submission integration owns template rendering and its async adapter: invoke this
+blocking library in a worker thread, return `PublishResult.url`, and translate typed
+`PublisherError` failures into the endpoint's safe error/retry contract. Installing that
+adapter is separate from this library; an unconfigured endpoint must remain unavailable.
+
 ## Content synchronization and migrations
 
 The seeder validates **all** `recipes/*.yaml` files against the shared recipe contract before

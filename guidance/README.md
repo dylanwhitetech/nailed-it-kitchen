@@ -58,6 +58,7 @@ What did we choose?
 | [0012-beta-recipe-pr-permissions.md](0012-beta-recipe-pr-permissions.md) | Planned minimum PR permissions and explicit owner approval gate | `backend/**`, `docs/github-app.md`, secret references |
 | [0013-simple-beta-frontend.md](0013-simple-beta-frontend.md) | Simple CSS and easily restyled components; NIK branding | `frontend/**`, `docs/frontend.md` |
 | [0015-submission-protection.md](0015-submission-protection.md) | Default-off switch, size caps, trusted proxies, rate limits, fail-closed Turnstile | `backend/app/submissions.py`, `frontend/**`, `docs/submissions.md` |
+| [0016-idempotent-recipe-pr-publisher.md](0016-idempotent-recipe-pr-publisher.md) | Per-slug atomic content reservation, no overwrites, scoped tokens and the PR body interface | `backend/app/github_publisher.py`, `docs/github-app.md` |
 
 ## References
 
