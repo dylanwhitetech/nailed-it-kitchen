@@ -1,9 +1,11 @@
 """Exercise validated recipe synchronization against real PostgreSQL."""
 
 import shutil
+import subprocess
+import sys
 
 import pytest
-from conftest import RECIPES
+from conftest import RECIPES, ROOT
 
 
 @pytest.fixture
@@ -26,6 +28,26 @@ def rows(engine):
                 )
             ).mappings()
         }
+
+
+def test_manage_migrates_and_seeds_fresh_database(database):
+    from sqlalchemy import inspect
+
+    from recipes.validate import validate_file
+
+    engine, _ = database
+    assert inspect(engine).get_table_names() == []
+    manage = [sys.executable, "-m", "backend.app.manage"]
+    subprocess.run(manage, cwd=ROOT, check=True)
+    assert set(inspect(engine).get_table_names()) == {"alembic_version", "recipes"}
+    first = rows(engine)
+    assert set(first) == {
+        validate_file(path)["slug"] for path in RECIPES.glob("*.yaml")
+    }
+    assert all(row["view_count"] == 0 for row in first.values())
+
+    subprocess.run(manage, cwd=ROOT, check=True)
+    assert rows(engine) == first
 
 
 @pytest.mark.parametrize("additional_recipe", [False, True])
