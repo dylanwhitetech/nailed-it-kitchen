@@ -1,0 +1,73 @@
+# Frontend guide
+
+The web app is a small React + Vite + strict TypeScript project in `frontend/`, styled with plain
+CSS. Layout, page content and API access live in separate files, so the look can change without
+touching how data is fetched.
+
+## Commands
+
+Run these from `frontend/` with Node.js 24 LTS:
+
+| Task | Command |
+| --- | --- |
+| Install exact locked dependencies | `npm ci` |
+| Dev server on http://localhost:5173 | `npm run dev` |
+| Lint (Oxlint, warnings fail) | `npm run lint` |
+| Type check | `npm run typecheck` |
+| Tests (Vitest + Testing Library) | `npm test` |
+| Production build to `dist/` | `npm run build` |
+| Container image (from the repo root) | `docker build -t nik-web frontend` |
+| Multi-arch image | `docker buildx build --platform linux/amd64,linux/arm64 -t nik-web frontend` |
+
+The dev server forwards `/api` to the backend at `http://localhost:8000`. Set
+`VITE_API_PROXY_TARGET` to use another backend address, for example
+`VITE_API_PROXY_TARGET=http://api:8000 npm run dev`.
+
+The image builds with `node:24-alpine` and serves `dist/` from non-root `nginx-unprivileged` on
+port 8080. Unknown paths fall back to `index.html` so the app can show its own not-found page;
+`/api/*` is never served by this container and returns 404 if it reaches it. In production the
+ingress routes `/api` to the backend.
+
+## Where things live
+
+| Path | Owns | Change it to… |
+| --- | --- | --- |
+| `src/styles/theme.css` | Named colors, fonts, sizes, spacing, focus ring | Restyle the whole app |
+| `src/styles/global.css` | Base element styles and shell/component classes | Adjust layout and component looks |
+| `src/components/Layout.tsx` | Skip link, header, beta badge, navigation, main area, footer | Change the page frame |
+| `src/components/Logo.tsx` | NIK mark and text wordmark | Change the header logo |
+| `public/favicon.svg` | Browser tab icon (same mark as `Logo.tsx`) | Change the favicon |
+| `src/components/ApiStatus.tsx` | Backend health message in the footer | Change health wording |
+| `src/pages/*.tsx` | Page content only; no fetching | Change page text and structure |
+| `src/routes.tsx` | Page paths, navigation labels and order | Add or rename a top-level page |
+| `src/api/*.ts` | All HTTP calls (`apiGet`, `checkHealth`) | Change how data is fetched |
+
+Rule of thumb: components call functions from `src/api/`, never `fetch` directly, and styling
+never lives in `src/api/`.
+
+## Changing the appearance
+
+1. Start with `src/styles/theme.css`. Changing `--color-brand`, `--font-body` or the `--space-*`
+   scale restyles every component that uses them.
+2. Adjust classes in `src/styles/global.css` for layout or individual components. Class names
+   follow `block__element` (for example `site-header__inner`, `logo__mark`).
+3. Keep text/background pairs at WCAG AA contrast (4.5:1 for normal text) and keep a visible
+   `:focus-visible` outline for keyboard users.
+4. Check a narrow phone width (about 360px) and a desktop width before opening a PR.
+
+No component library or CSS framework is used; adding one needs an issue and a guidance record.
+
+## Accessibility and fallbacks
+
+- A "Skip to content" link appears on keyboard focus and moves to `<main id="main">`.
+- The current navigation link has `aria-current="page"`.
+- The site name is real text next to the SVG mark, so it remains readable without the image.
+- `index.html` shows a short `<noscript>` message when JavaScript is disabled.
+- The footer announces backend health in a status region; the page stays usable when the backend
+  is down.
+
+## Logo
+
+The NIK mark is original artwork: white "NIK" strokes on a rounded brand-green square. It is drawn
+with simple paths (no font dependency) so it stays legible at 16px. When changing it, update both
+`src/components/Logo.tsx` and `public/favicon.svg`.

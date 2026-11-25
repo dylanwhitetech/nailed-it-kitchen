@@ -5,9 +5,10 @@ The first usable release is the **beta**; advanced recipe grids and other extras
 
 **URL:** https://naileditkitchen.dylanlabs.dev (not live yet)
 
-> **Status:** beta scope is agreed; application implementation has not started and the site is
-> not live yet. GitHub has one Beta delivery epic and a separate Post-beta backlog. Follow actual
-> prerequisites and native issue dependencies, not legacy phase or sequence numbers.
+> **Status:** beta scope is agreed; the frontend shell exists and the rest of the application is in
+> progress. The site is not live yet. GitHub has one Beta delivery epic and a separate Post-beta
+> backlog. Follow actual prerequisites and native issue dependencies, not legacy phase or sequence
+> numbers.
 
 ## Team
 
@@ -102,8 +103,8 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
 
 ## Run & test locally (Docker)
 
-> **Not implemented yet:** Compose, app containers and test commands are beta implementation work.
-> The commands below are the intended contract, not evidence that the current checkout runs.
+> **Not implemented yet:** Compose and the backend container are beta implementation work.
+> The Compose commands below are the intended contract, not evidence that the current checkout runs.
 > `.env.example` contains only the planned, disabled submission switch; no service reads it yet.
 
 **Once implemented, do this before every push.**
@@ -114,8 +115,9 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
    - Web: http://localhost:8080
    - API: http://localhost:8000 (docs at http://localhost:8000/api/docs)
    - Postgres: `localhost:5432`
-4. Run the backend, frontend and recipe checks documented with their implementation. Recipe checks
-   (Python only, no Docker): see [Validate recipes locally](docs/recipe-format.md#validate-recipes-locally).
+4. Run the backend, [frontend](docs/frontend.md) and
+   [recipe](docs/recipe-format.md#validate-recipes-locally) checks documented with their implementation.
+   The recipe checks require Python, not Docker.
    The optional Post-beta `local-preflight` skill is not required.
 5. Reset the database: `docker compose down -v` (deletes local volumes and their data).
 
@@ -175,6 +177,7 @@ per session on a supported surface:
 Currently present:
 
 ```text
+frontend/        React/Vite web app and its nginx image (see docs/frontend.md)
 recipes/*.yaml   Reviewed plain-text recipes (docs/recipe-format.md)
 recipes/schema/  Recipe JSON Schema; recipes/validate.py validates and extracts
 recipes/source/  Original recipes used as test fixtures
@@ -183,8 +186,7 @@ guidance/        Lasting decisions (one record per decision)
 .github/         Copilot agents, skills, instructions, templates, workflows
 ```
 
-Planned, not present yet: `frontend/` (React/Vite), `backend/` (FastAPI,
-migrations and seeder), and
+Planned, not present yet: `backend/` (FastAPI, migrations and seeder), and
 `deploy/chart/` (Helm chart). Their implementation will document the exact
 lint, test, build and startup commands; no placeholder Make targets are provided.
 
