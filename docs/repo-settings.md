@@ -20,7 +20,7 @@ they can be considered complete.
 | Copilot code review | `review_on_push=false`; `review_draft_pull_requests=false` (skip new-push and draft reviews; automatic reviews run on PR open/ready) | Active ruleset verified |
 | Dependabot | Vulnerability alerts enabled | Applied |
 | Secret scanning | Secret scanning and push protection enabled | Already enabled |
-| Code scanning | CodeQL default setup, `default` query suite, weekly schedule, languages detected by GitHub | Applied 2026-11-25; default-setup API readback at 2026-11-25 07:05 UTC lists `actions`, `javascript-typescript` (also reported as `javascript` and `typescript`) and `python`. Owner verification of the Python and JavaScript/TypeScript results is pending (see below) |
+| Code scanning | CodeQL default setup, `default` query suite, weekly schedule, languages detected by GitHub | Applied 2026-11-25; agent-collected read-only API readback at 2026-11-25 07:09 UTC reports `state=configured` with `actions`, `javascript-typescript` (also reported as `javascript` and `typescript`) and `python`; the latest `main` analyses (commit `ca03afb`) for those three categories report 0 results, with 0 open alerts. Owner verification of the Python and JavaScript/TypeScript results is pending (see below) |
 | GitHub Actions | Default `GITHUB_TOKEN` permissions are read-only; token cannot approve PR reviews; fork PR approval policy is all outside contributors; `allowed_actions=all` | Verified; action allowlisting was not requested or changed |
 
 The active ruleset retains the existing CodeQL alert rule and repository-admin bypass.
