@@ -1,5 +1,6 @@
 """Submission guards: availability, size caps, proxy trust, rate limits and Turnstile."""
 
+import asyncio
 import ipaddress
 import json
 import time
@@ -7,7 +8,9 @@ import time
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from starlette.exceptions import HTTPException
 
+from backend.app import submissions as submissions_module
 from backend.app.submissions import (
     MAX_REQUEST_BYTES,
     PublishError,
@@ -196,6 +199,39 @@ def test_request_body_limit_is_exact_with_or_without_content_length(client, chun
     over_limit = send(padded_body(MAX_REQUEST_BYTES + 1))
     assert over_limit.status_code == 413
     assert over_limit.json()["detail"]["code"] == "request_too_large"
+
+
+def test_oversized_chunk_is_rejected_before_it_is_buffered(monkeypatch):
+    class TrackingBytearray(bytearray):
+        largest_length = 0
+
+        def extend(self, chunk):
+            super().extend(chunk)
+            type(self).largest_length = max(type(self).largest_length, len(self))
+
+        def __iadd__(self, chunk):
+            super().__iadd__(chunk)
+            type(self).largest_length = max(type(self).largest_length, len(self))
+            return self
+
+    class RequestChunks:
+        async def stream(self):
+            yield b"x" * MAX_REQUEST_BYTES
+            yield b"y" * (MAX_REQUEST_BYTES + 1)
+
+    monkeypatch.setattr(
+        submissions_module, "bytearray", TrackingBytearray, raising=False
+    )
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(
+            submissions_module.read_bounded_body(
+                RequestChunks(), limit=MAX_REQUEST_BYTES
+            )
+        )
+
+    assert error.value.status_code == 413
+    assert TrackingBytearray.largest_length == MAX_REQUEST_BYTES
 
 
 def test_declared_oversize_is_refused_before_rate_limit_or_body(client, app):
@@ -504,6 +540,37 @@ def test_turnstile_sends_secret_and_token_with_bounded_timeout(
     assert post_json(client, payload()).status_code == 201
     assert seen["form"] == {"secret": TEST_SECRET, "response": "XXXX.DUMMY.TOKEN.XXXX"}
     assert set(seen["timeout"].values()) == {2.5}
+
+
+class SlowTurnstileStream(httpx.AsyncByteStream):
+    async def __aiter__(self):
+        yield b'{"success'
+        await asyncio.sleep(0.1)
+        yield b'":'
+        await asyncio.sleep(0.1)
+        yield b"true"
+        await asyncio.sleep(0.1)
+        yield b"}"
+
+    async def aclose(self):
+        pass
+
+
+def test_turnstile_total_deadline_rejects_slow_stream_without_publishing(
+    client, app, monkeypatch
+):
+    monkeypatch.setenv("TURNSTILE_TIMEOUT_SECONDS", "0.25")
+    app.state.turnstile_verifier = TurnstileVerifier(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, stream=SlowTurnstileStream())
+        )
+    )
+
+    response = post_json(client, payload())
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "turnstile_unavailable"
+    assert app.state.recipe_publisher.calls == []
 
 
 def raise_timeout(request):

@@ -16,6 +16,7 @@ Every control runs on the server, in this order, before any GitHub write:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import ipaddress
@@ -154,15 +155,16 @@ class TurnstileVerifier:
         if not secret.get_secret_value():
             raise TurnstileUnavailable("secret not configured")
         try:
-            async with httpx.AsyncClient(
-                transport=self._transport, timeout=timeout_seconds
-            ) as client:
-                response = await client.post(
-                    TURNSTILE_VERIFY_URL,
-                    data={"secret": secret.get_secret_value(), "response": token},
-                )
-            body = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
+            async with asyncio.timeout(timeout_seconds):
+                async with httpx.AsyncClient(
+                    transport=self._transport, timeout=timeout_seconds
+                ) as client:
+                    response = await client.post(
+                        TURNSTILE_VERIFY_URL,
+                        data={"secret": secret.get_secret_value(), "response": token},
+                    )
+                body = response.json()
+        except (httpx.HTTPError, ValueError, TimeoutError) as exc:
             raise TurnstileUnavailable(type(exc).__name__) from None
         if response.status_code != 200 or not isinstance(body, dict):
             raise TurnstileUnavailable(f"HTTP {response.status_code}")
@@ -341,13 +343,13 @@ async def read_bounded_body(request: Request, limit: int = MAX_REQUEST_BYTES) ->
     """
     body = bytearray()
     async for chunk in request.stream():
-        body += chunk
-        if len(body) > limit:
+        if len(body) + len(chunk) > limit:
             raise _fail(
                 413,
                 "request_too_large",
                 f"The request is larger than {limit} bytes.",
             )
+        body.extend(chunk)
     return bytes(body)
 
 
