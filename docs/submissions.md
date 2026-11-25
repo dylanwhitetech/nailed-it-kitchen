@@ -109,14 +109,15 @@ published in either case.
 
 ## Turning submissions on or off
 
-Change `SUBMISSIONS_ENABLED` through Git: update the Helm values or environment in the
-deployment repository and let Flux roll out the change; manual cluster edits are reverted. The
-Helm chart is not implemented yet, so the exact values key is defined with it.
+With the Helm chart, set `submissions.enabled` (default `false`) in the deployment repository's
+values. The chart maps it to `SUBMISSIONS_ENABLED` in the API. Commit the change and let Flux roll
+it out; manual cluster edits are reverted. Keep submissions off until the publisher, Turnstile and
+owner-verification gates above are met.
 
 - **In-flight requests:** each request reads the switch once, when it starts. A request that has
-  already passed the switch continues through validation, Turnstile and publishing; new requests
-  are refused immediately. A rollout replaces pods with graceful shutdown, which lets running
-  requests finish.
+  already passed the switch continues through validation, Turnstile and publishing. When
+  disabling submissions, old pods may still accept new requests until they are replaced;
+  updated pods refuse them. Graceful shutdown allows time for running requests to finish.
 - **What keeps working:** browsing, search, health and readiness do not depend on the switch,
   Turnstile or GitHub.
 - To pause quickly during an incident, set the switch to `false` and let the rollout complete;
