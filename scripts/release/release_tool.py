@@ -601,7 +601,9 @@ def promote(
         "--repo",
         INFRA_REPO,
         "--head",
-        branch,
+        f"{OWNER}:{branch}",
+        "--base",
+        INFRA_BASE_BRANCH,
         "--state",
         "open",
     ]

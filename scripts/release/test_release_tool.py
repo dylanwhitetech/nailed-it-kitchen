@@ -439,6 +439,12 @@ def test_promote_reports_existing_pr_and_noop(tmp_path):
     infra, target = infra_checkout(tmp_path)
     runner = promote_runner(open_pr="https://github.com/o/infra/pull/6\n")
     assert rt.promote(runner, infra, "0.2.0", "url", TARGET_PATH).endswith("pull/6")
+    call = runner.ran("gh pr list")[0]
+    assert call[call.index("--base") + 1] == "main"
+    assert (
+        call[call.index("--head") + 1]
+        == "dylanwhitetech:automation/naileditkitchen-chart-0.2.0"
+    )
     assert target.read_text(encoding="utf-8") == HELMRELEASE
     assert "already pins" in rt.promote(
         promote_runner(), infra, "0.1.0", "url", TARGET_PATH
