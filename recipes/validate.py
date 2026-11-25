@@ -38,6 +38,7 @@ _LIST_FIELDS = ("ingredients", "instructions", "notes")
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 _WHITESPACE_RUN = re.compile(r"\s+")
 _HEADING_PREFIX = re.compile(r"^#{1,6}\s+")
+_TITLE_ESCAPE_PREFIX = "\\"
 _SECTION_HEADER = re.compile(
     r"^(?:#{1,6}\s+)?(ingredients|instructions|directions|steps|notes)\s*:?$",
     re.IGNORECASE,
@@ -216,6 +217,16 @@ def validate_file(path: Path) -> dict[str, Any]:
     return recipe
 
 
+def _format_title(title: str) -> str:
+    if (
+        title.startswith(_TITLE_ESCAPE_PREFIX)
+        or _HEADING_PREFIX.match(title)
+        or _SECTION_HEADER.match(title)
+    ):
+        return _TITLE_ESCAPE_PREFIX + title
+    return title
+
+
 def parse_paste_template(text: str) -> dict[str, Any]:
     """Extract one recipe from the paste template without guessing.
 
@@ -249,13 +260,16 @@ def parse_paste_template(text: str) -> dict[str, Any]:
             continue
         header = _SECTION_HEADER.match(line)
         if title is None:
-            if header:
+            if line.startswith(_TITLE_ESCAPE_PREFIX):
+                title = line[1:]
+            elif header:
                 raise RecipeError(
                     [
                         f"line {number}: the first line must be the recipe title, not a section"
                     ]
                 )
-            title = _HEADING_PREFIX.sub("", line)
+            else:
+                title = _HEADING_PREFIX.sub("", line)
             continue
         if header:
             name = _SECTION_NAMES[header.group(1).lower()]
@@ -330,7 +344,7 @@ def format_paste_template(recipe: Mapping[str, Any]) -> str:
     :func:`parse_paste_template` reads this output back to the same recipe, and its length
     defines the normalized recipe content size.
     """
-    lines = [recipe["title"]]
+    lines = [_format_title(recipe["title"])]
     if "source" in recipe:
         lines.append(f"Source: {recipe['source']}")
     lines += ["", "Ingredients", *(f"- {item}" for item in recipe["ingredients"])]

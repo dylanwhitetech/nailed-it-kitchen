@@ -246,6 +246,24 @@ def test_paste_template_extracts_recipe():
     )
 
 
+@pytest.mark.parametrize(
+    ("title_line", "expected_title"),
+    [
+        ("# # Toast", "# Toast"),
+        (r"\Notes", "Notes"),
+        (r"\# Toast", "# Toast"),
+        (r"\\Notes", r"\Notes"),
+    ],
+)
+def test_title_escaping_round_trips(title_line, expected_title):
+    recipe = v.parse_paste_template(
+        f"{title_line}\n\nIngredients\n- bread\n\nInstructions\n1. Toast."
+    )
+
+    assert recipe["title"] == expected_title
+    assert v.parse_paste_template(v.format_paste_template(recipe)) == recipe
+
+
 def test_paste_normalization_is_deterministic():
     text = (
         "\ufeff  ## Buttered\tToast  \r\n"

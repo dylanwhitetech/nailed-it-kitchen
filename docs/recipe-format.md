@@ -85,7 +85,9 @@ plain text; HTML or Markdown characters are kept as literal text, not interprete
    control character other than tab is rejected.
 2. Each line is normalized: Unicode NFC, every whitespace run (tabs, non-breaking spaces) becomes
    one space, and surrounding spaces are trimmed. Blank lines are ignored.
-3. The first nonblank line is the title; a leading Markdown heading marker (`# `) is removed.
+3. The first nonblank line is the title. A leading backslash escapes the title: exactly one
+   backslash is removed, and heading/section recognition is skipped. Otherwise a leading Markdown
+   heading marker (`# `) is removed.
 4. Between the title and `Ingredients`, only one `Source:` (or `Credit:`) line is allowed.
 5. A section header is a whole line, case-insensitive, optionally prefixed with `#` marks and
    followed by `:`. `Ingredients` comes first, then `Instructions` (also `Directions` or `Steps`),
@@ -98,7 +100,8 @@ plain text; HTML or Markdown characters are kept as literal text, not interprete
 9. The extracted recipe then passes the same validation as a recipe file.
 
 `format_paste_template` renders a recipe back into this template, and parsing that output returns
-the same recipe (with the title-derived slug).
+the same recipe (with the title-derived slug). It escapes titles that start with a backslash or
+would otherwise be read as a Markdown heading or section header by prefixing one backslash.
 
 ### Errors
 
