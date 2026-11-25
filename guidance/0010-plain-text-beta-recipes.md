@@ -17,8 +17,9 @@ losing details. Preserve original source fixtures.
 
 Sync reviewed content to a minimal PostgreSQL recipe model through an idempotent
 seeder. Keep stable identity, timestamps and nonnegative durable view counts; reseeding
-must preserve identity/counters. Future fields use tested Alembic migrations, not
-speculative graph, tags, ratings or generic attribute tables.
+must preserve identity/counters. File removal does not delete database rows, and changing a
+slug creates a new row instead of renaming or deleting the old one. Future fields use tested
+Alembic migrations, not speculative graph, tags, ratings or generic attribute tables.
 
 Use PostgreSQL lexical/full-text search over title, ingredients and instructions.
 Default browsing is case-insensitive A-Z with stable pagination/tie-breaks.
