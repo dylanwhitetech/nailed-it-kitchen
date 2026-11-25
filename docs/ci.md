@@ -10,7 +10,7 @@ another push cannot cancel its pending image publication.
 | `Backend` | PRs, `main` | Ruff lint and format check, then pytest against a disposable PostgreSQL 17 service. `TEST_DATABASE_URL` is set, so database tests run instead of being skipped. |
 | `Frontend` | PRs, `main` | `npm ci`, Oxlint (warnings fail), Vitest, then type check and production build. |
 | `Recipes` | PRs, `main` | Validates `recipes/*.yaml` against the plain recipe schema, runs the validator/fixture tests and Ruff. |
-| `Helm chart applicability` | PRs, `main` | **Not Helm validation.** Reports "not applicable" while `deploy/chart/` does not exist, and fails once it does until real chart checks replace it. |
+| `Helm chart applicability` | PRs, `main` | `helm lint` and `helm template` with pinned Helm (including checks that an unreleased chart or a `latest` tag does not render), then a disposable kind cluster with a pinned CloudNativePG operator runs [`deploy/chart/smoke-test.sh`](../deploy/chart/smoke-test.sh): fresh install, upgrade and backup. |
 | `Image build (api)`, `Image build (web)` | PRs | Buildx builds `linux/amd64` and `linux/arm64` images without pushing them. |
 | `Image publish (api)`, `Image publish (web)` | pushes to `main` | After every check above passes, builds both platforms and pushes one tag per image. |
 
@@ -73,18 +73,26 @@ docker buildx build --platform linux/amd64,linux/arm64 -f frontend/Dockerfile fr
 The `-rs` flag lists skipped tests; with `TEST_DATABASE_URL` set none should be skipped. The
 PostgreSQL container's placeholder credentials are for a throwaway local database only.
 
-## Adding the Helm chart checks
+## Helm chart checks
 
-When `deploy/chart/` is added, the same pull request replaces the `Helm chart applicability` job
-with real chart checks under the same job name, so the required check keeps its meaning:
+The `chart` job keeps the name `Helm chart applicability` so the required check keeps its
+meaning, and the publish jobs wait for it. It downloads Helm and kind at pinned versions and
+verifies their SHA-256 checksums, creates a kind cluster from a digest-pinned node image with an
+isolated kubeconfig, installs CloudNativePG chart 0.29.2, loads locally built images under two
+tags and runs the smoke test described in the [deployment guide](deployment.md#smoke-test):
 
-1. `helm lint` and `helm template` of the chart with pinned Helm.
-2. A fresh-install smoke test in a disposable cluster with a pinned CloudNativePG operator:
-   resources and credentials are created, the migration/seed job completes, the API reports
-   ready and the web page loads.
-3. Upgrade coverage for the migration ordering contract.
+1. Fresh install: the Cluster and its credentials are created, the migration/seed Job completes,
+   the web page loads, `/api/readyz` is ready and every reviewed recipe is served.
+2. Upgrade to the second tag: a new revision Job completes, the previous Job is removed and both
+   Deployments roll out to the new images.
+3. Backup: a Job created from the backup CronJob writes and verifies a dump.
 
-Keep the job id `chart` so the publish jobs still wait for it, and update the table above.
+To lint and render locally with Helm 3 (the smoke test needs a disposable cluster):
+
+```bash
+helm lint deploy/chart/naileditkitchen --set api.image.tag=dev --set web.image.tag=dev
+helm template naileditkitchen deploy/chart/naileditkitchen --set api.image.tag=dev --set web.image.tag=dev
+```
 
 ## Required checks
 

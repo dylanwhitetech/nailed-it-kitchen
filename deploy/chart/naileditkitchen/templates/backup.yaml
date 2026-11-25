@@ -1,0 +1,103 @@
+{{- if .Values.backup.enabled }}
+{{- $fullname := include "naileditkitchen.fullname" . }}
+{{- $cluster := include "naileditkitchen.dbCluster" . }}
+{{- $labels := dict "root" . "component" "backup" }}
+{{- $claim := default (printf "%s-db-backups" $fullname) .Values.backup.storage.existingClaim }}
+{{- if not .Values.backup.storage.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $claim }}
+  labels:
+    {{- include "naileditkitchen.labels" $labels | nindent 4 }}
+  annotations:
+    # Uninstalling the release must never delete backups.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [{{ .Values.backup.storage.accessMode }}]
+  storageClassName: {{ .Values.backup.storage.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.storage.size }}
+---
+{{- end }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname }}-backup
+  labels:
+    {{- include "naileditkitchen.labels" $labels | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  {{- with .Values.backup.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.backup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.backup.failedJobsHistoryLimit }}
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "naileditkitchen.labels" $labels | nindent 8 }}
+    spec:
+      activeDeadlineSeconds: {{ .Values.backup.activeDeadlineSeconds }}
+      backoffLimit: {{ .Values.backup.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "naileditkitchen.labels" $labels | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            {{- include "naileditkitchen.podSecurityContext" 26 | nindent 12 }}
+          containers:
+            - name: pg-dump
+              # The PostgreSQL operand image provides a pg_dump matching the server version.
+              image: {{ .Values.database.imageName }}
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              # Writes a custom-format dump atomically, then prunes only after a successful dump.
+              args:
+                - |
+                  set -eu
+                  name="naileditkitchen-$(date -u +%Y%m%dT%H%M%SZ).dump"
+                  pg_dump --format=custom --no-password --file="/backups/${name}.partial"
+                  pg_restore --list "/backups/${name}.partial" > /dev/null
+                  mv "/backups/${name}.partial" "/backups/${name}"
+                  echo "wrote /backups/${name}"
+                  find /backups -maxdepth 1 -type f -name 'naileditkitchen-*.dump.partial' -mmin +60 -delete
+                  find /backups -maxdepth 1 -type f -name 'naileditkitchen-*.dump' -mtime +"${RETENTION_DAYS}" -print -delete
+              env:
+                - name: PGHOST
+                  value: {{ $cluster }}-rw
+                - name: PGPORT
+                  value: "5432"
+                - name: PGDATABASE
+                  value: {{ .Values.database.name | quote }}
+                - name: PGUSER
+                  value: {{ .Values.database.name | quote }}
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $cluster }}-app
+                      key: password
+                - name: RETENTION_DAYS
+                  value: {{ .Values.backup.retentionDays | int | quote }}
+              securityContext:
+                {{- include "naileditkitchen.containerSecurityContext" . | nindent 16 }}
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: {{ $claim }}
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi
+{{- end }}

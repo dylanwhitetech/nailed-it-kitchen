@@ -1,0 +1,156 @@
+{{- $fullname := include "naileditkitchen.fullname" . }}
+{{- $labels := dict "root" . "component" "api" }}
+{{- $image := include "naileditkitchen.image" (dict "root" . "image" .Values.api.image) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "naileditkitchen.labels" $labels | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "naileditkitchen.selectorLabels" $labels | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "naileditkitchen.labels" $labels | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  # Old pods keep serving until a new pod passes the schema gate and readiness.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "naileditkitchen.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "naileditkitchen.labels" $labels | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "naileditkitchen.podSecurityContext" 10001 | nindent 8 }}
+      initContainers:
+        # Waits (bounded) for the migration Job of this release; never migrates itself.
+        - name: wait-for-schema
+          image: {{ $image }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["python", "-m", "backend.app.manage", "wait-for-schema", "--timeout", {{ .Values.api.schemaWaitSeconds | quote }}]
+          env:
+            {{- include "naileditkitchen.databaseEnv" . | nindent 12 }}
+          securityContext:
+            {{- include "naileditkitchen.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: api
+          image: {{ $image }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            {{- include "naileditkitchen.databaseEnv" . | nindent 12 }}
+            - name: SUBMISSIONS_ENABLED
+              value: {{ .Values.submissions.enabled | quote }}
+            - name: TURNSTILE_SITE_KEY
+              value: {{ .Values.submissions.turnstile.siteKey | quote }}
+            {{- with .Values.submissions.turnstile.existingSecret }}
+            - name: TURNSTILE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.submissions.turnstile.secretKey }}
+                  optional: true
+            {{- end }}
+            - name: TURNSTILE_TIMEOUT_SECONDS
+              value: {{ .Values.submissions.turnstile.timeoutSeconds | quote }}
+            - name: TRUSTED_PROXY_CIDRS
+              value: {{ .Values.submissions.trustedProxyCidrs | quote }}
+            - name: SUBMISSION_RATE_LIMIT_PER_CLIENT
+              value: {{ .Values.submissions.rateLimit.perClient | quote }}
+            - name: SUBMISSION_RATE_LIMIT_AGGREGATE
+              value: {{ .Values.submissions.rateLimit.aggregate | quote }}
+            - name: SUBMISSION_RATE_LIMIT_WINDOW_SECONDS
+              value: {{ .Values.submissions.rateLimit.windowSeconds | quote }}
+            {{- if .Values.githubApp.enabled }}
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.githubApp.existingSecret }}
+                  key: app-id
+            - name: GITHUB_APP_INSTALLATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.githubApp.existingSecret }}
+                  key: installation-id
+            - name: GITHUB_APP_PRIVATE_KEY_FILE
+              value: /var/run/secrets/naileditkitchen/github-app/private-key
+            - name: GITHUB_REPOSITORY
+              value: {{ .Values.githubApp.repository | quote }}
+            - name: GITHUB_BASE_BRANCH
+              value: {{ .Values.githubApp.baseBranch | quote }}
+            {{- end }}
+          securityContext:
+            {{- include "naileditkitchen.containerSecurityContext" . | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.githubApp.enabled }}
+            - name: github-app
+              mountPath: /var/run/secrets/naileditkitchen/github-app
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- if .Values.githubApp.enabled }}
+        - name: github-app
+          secret:
+            secretName: {{ .Values.githubApp.existingSecret }}
+            defaultMode: 0400
+            items:
+              - key: private-key
+                path: private-key
+        {{- end }}

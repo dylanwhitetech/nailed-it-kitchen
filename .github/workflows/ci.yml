@@ -111,24 +111,75 @@ jobs:
           python -m ruff format --check recipes
 
   chart:
+    # Name kept from the former applicability placeholder so the required check keeps its meaning.
     name: Helm chart applicability
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # Not Helm validation. Reports "not applicable" while no chart exists and fails once a chart
-    # appears, so a chart can never merge behind a green check that did not lint it.
+    timeout-minutes: 40
+    env:
+      HELM_VERSION: v3.22.1
+      HELM_SHA256: 896cf63684a42a723d61c980369d6e588330927deb13676ca0d85006dd6da0ea
+      KIND_VERSION: v0.31.0
+      KIND_SHA256: eb244cbafcc157dff60cf68693c14c9a75c4e6e6fedaf9cd71c58117cb93e3fa
+      KIND_NODE_IMAGE: kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+      CNPG_CHART_VERSION: 0.29.2
+      CHART: deploy/chart/naileditkitchen
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Check for deploy/chart
+      - name: Install pinned Helm and kind (checksum-verified)
         run: |
-          if [ -e deploy/chart ]; then
-            echo "::error::deploy/chart exists but this workflow has no Helm lint/template/install checks. Add them with the chart."
-            exit 1
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSLo "$RUNNER_TEMP/helm.tgz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  $RUNNER_TEMP/helm.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/helm.tgz" -C "$RUNNER_TEMP" linux-amd64/helm
+          install -m 0755 "$RUNNER_TEMP/linux-amd64/helm" "$RUNNER_TEMP/bin/helm"
+          curl -fsSLo "$RUNNER_TEMP/bin/kind" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
+          echo "${KIND_SHA256}  $RUNNER_TEMP/bin/kind" | sha256sum --check
+          chmod 0755 "$RUNNER_TEMP/bin/kind"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Helm lint and template
+        run: |
+          set -euo pipefail
+          helm lint "$CHART" --set api.image.tag=ci --set web.image.tag=ci
+          helm template naileditkitchen "$CHART" --namespace naileditkitchen \
+            --set api.image.tag=ci --set web.image.tag=ci \
+            --api-versions monitoring.coreos.com/v1 > /dev/null
+          # Release safety: an unpublished chart or a moving tag must not render.
+          if helm template naileditkitchen "$CHART" > /dev/null 2>&1; then
+            echo "::error::chart rendered without an image tag or release appVersion"; exit 1
           fi
-          echo "::notice::Helm validation not applicable: deploy/chart does not exist. No chart was linted or installed."
-          echo "Helm validation: **not applicable** (deploy/chart does not exist). No chart was linted or installed." >> "$GITHUB_STEP_SUMMARY"
-
+          if helm template naileditkitchen "$CHART" --set api.image.tag=latest --set web.image.tag=latest > /dev/null 2>&1; then
+            echo "::error::chart rendered with a latest image tag"; exit 1
+          fi
+      - name: Build smoke-test images
+        run: |
+          docker build -t naileditkitchen-api:smoke-1 -f backend/Dockerfile .
+          docker build -t naileditkitchen-web:smoke-1 -f frontend/Dockerfile frontend
+          # A second tag of the same images exercises the upgrade path (new revision, new Job).
+          docker tag naileditkitchen-api:smoke-1 naileditkitchen-api:smoke-2
+          docker tag naileditkitchen-web:smoke-1 naileditkitchen-web:smoke-2
+      - name: Create disposable kind cluster with CloudNativePG
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kind.kubeconfig
+        run: |
+          kind create cluster --name nik-chart --image "$KIND_NODE_IMAGE" --wait 120s
+          for image in naileditkitchen-api:smoke-1 naileditkitchen-api:smoke-2 \
+            naileditkitchen-web:smoke-1 naileditkitchen-web:smoke-2; do
+            kind load docker-image "$image" --name nik-chart
+          done
+          helm install cnpg cloudnative-pg --repo https://cloudnative-pg.github.io/charts \
+            --version "$CNPG_CHART_VERSION" --kube-context kind-nik-chart \
+            --namespace cnpg-system --create-namespace --wait --timeout 5m
+      - name: Fresh install, upgrade and backup smoke test
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kind.kubeconfig
+          KUBE_CONTEXT: kind-nik-chart
+          API_REPOSITORY: naileditkitchen-api
+          WEB_REPOSITORY: naileditkitchen-web
+          FIRST_TAG: smoke-1
+          SECOND_TAG: smoke-2
+        run: bash deploy/chart/smoke-test.sh
   image-build:
     name: Image build (${{ matrix.component }})
     if: github.event_name == 'pull_request'
