@@ -1,4 +1,4 @@
-# 0014: Early CI and SHA-tagged multi-arch images
+# 0017: Early CI and SHA-tagged multi-arch images
 
 ## Status
 Accepted
