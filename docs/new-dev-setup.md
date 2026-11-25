@@ -3,9 +3,8 @@
 This guide covers access, tools, and the first steps for developing Nailed It Kitchen.
 The repository is public, but only collaborators can contribute issues and pull requests.
 
-> **Current status:** The app and local Docker Compose stack have not been built yet.
-> You can complete the access, tool, and Copilot checks below now. The app startup
-> and test commands in the README are placeholders until their linked issues land.
+> **Current status:** The frontend shell, backend foundation and local Compose stack exist.
+> Recipe browsing/search and protected submissions remain beta work in progress.
 
 ## 1. Get access
 
@@ -57,16 +56,14 @@ of every session; no repository file makes it the default (see
 [AI-first workflow](../README.md#ai-first-workflow) describes the other supported
 Copilot entry points and repository agents.
 
-## 5. Start and test the app when available
+## 5. Start and test the app
 
-For now, there is no app to run: the Compose file, application services, and their
-test commands are not yet present. `.env.example` records the planned disabled
-submission switch but is not consumed by a service yet.
-
-Once the stack is implemented, follow the current
+Follow the
 [Run & test locally (Docker)](../README.md#run--test-locally-docker) instructions
-before pushing. The planned workflow copies `.env.example` to `.env`, starts
-services with `docker compose up --build`, and runs the documented tests.
+before pushing. Copy `.env.example` to `.env`, start
+services with `docker compose up --build`, and run the documented Docker checks.
+Postgres migrations and recipe seeding run before the API starts. No production
+GitHub credentials are needed; keep submissions disabled.
 The README's `docker compose down -v` reset **deletes local volumes and their data**;
 use it only when you intend to reset the local database.
 
@@ -81,8 +78,8 @@ For local development, use Cloudflare's visible, always-pass test site key
 [Cloudflare's testing guide](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 These public test keys are not production credentials. Test site keys produce dummy
 tokens that require a test secret; production secrets reject them. Never use a
-production secret for local testing or put it in Git or issues. The app and its
-configuration names are not implemented yet.
+production secret for local testing or put it in Git or issues. `.env.example` records
+`TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`; the submission workstream will consume them.
 
 ## 6. Work safely
 

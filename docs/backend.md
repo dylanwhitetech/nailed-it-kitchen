@@ -41,7 +41,8 @@ credentials. The following all run from the repository root:
 **Downgrade to base deletes the recipe table and all its data.** Only run it on a disposable
 database or as part of a deliberate recovery procedure with a tested backup. The combined
 `python -m backend.app.manage` command upgrades to head and then seeds, and is the command
-intended for the future Compose and Helm migration/seed job. It exits nonzero on any failure.
+used before each Compose API start and intended for the Helm migration/seed job.
+It exits nonzero on any failure.
 This does not verify production migration ordering, readiness, or deployment behavior.
 
 Database integration tests require `TEST_DATABASE_URL` pointing to a **dedicated disposable
@@ -54,7 +55,11 @@ Build the image from the repository root with `docker build -f backend/Dockerfil
 It contains the validator, schema and reviewed recipe files, runs as a non-root user on port
 8000, and can be built for amd64 or arm64. For the image's migration/seed job use
 `python -m backend.app.manage` as the container command with `DATABASE_URL` supplied securely.
-Compose and Helm orchestration are not implemented yet.
+Compose runs this command before Uvicorn after Postgres is healthy; failure prevents API/web
+readiness. Helm orchestration is not implemented yet. For Docker-only lint and tests use
+`docker compose --profile checks run --build --rm backend-checks` from the repository root
+after copying `.env.example` to `.env`. This includes the recipe tests and validator and starts
+a separate disposable PostgreSQL test service. Stop it with `docker compose --profile checks down`.
 
 ## Content synchronization and migrations
 
