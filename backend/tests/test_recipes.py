@@ -485,6 +485,32 @@ def test_database_failures_are_sanitized_503(monkeypatch, caplog, path, failure)
         assert engine.disposed
 
 
+def test_detail_commit_failure_returns_503_without_counting(
+    seed, migrated_db, monkeypatch, caplog
+):
+    from backend.app import recipes
+
+    seed([recipe("soup")])
+    real_create = recipes.create_database_engine
+    marker = "private-commit-marker"
+
+    def fail_commit(_connection):
+        raise OperationalError("COMMIT", {"marker": marker}, OSError(marker))
+
+    def create(settings):
+        engine = real_create(settings)
+        event.listen(engine, "commit", fail_commit)
+        return engine
+
+    monkeypatch.setattr(recipes, "create_database_engine", create)
+    with TestClient(app) as client:
+        response = client.get("/api/recipes/soup")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Recipe database is unavailable"}
+    assert marker not in response.text and marker not in caplog.text
+    assert snapshot(migrated_db)["soup"]["view_count"] == 0
+
+
 def test_recipe_pool_reuses_connections_and_disposes_on_shutdown(seed, monkeypatch):
     from backend.app import recipes
 
