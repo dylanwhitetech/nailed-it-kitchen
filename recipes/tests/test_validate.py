@@ -332,6 +332,11 @@ def test_paste_keeps_quantities_and_plain_markup_text():
         ),
         ("Toast\nIngredients\n-\nInstructions\n1. a", "line 3: empty list item"),
         (
+            "Toast\nIngredients\n- b\nInstructions\n1.\n2.",
+            "line 5: empty instruction step",
+        ),
+        ("Toast\nIngredients\n- b\nInstructions\n2)", "line 5: empty instruction step"),
+        (
             "Toast\nIngredients\n- b\nInstructions\n1. a\n3. c",
             "line 6: expected step 2",
         ),

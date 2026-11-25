@@ -46,6 +46,7 @@ _SECTION_HEADER = re.compile(
 _SOURCE_LINE = re.compile(r"^(?:source|credit)\s*:\s*(.*)$", re.IGNORECASE)
 _BULLET = re.compile(r"^[-*\u2022]\s+")
 _STEP_NUMBER = re.compile(r"^(\d{1,3})[.)]\s+")
+_EMPTY_STEP_NUMBER = re.compile(r"^\d{1,3}[.)]$")
 _SECTION_NAMES = {
     "ingredients": "Ingredients",
     "instructions": "Instructions",
@@ -393,6 +394,10 @@ def _strip_bullets(entries: list[tuple[int, str]]) -> list[str]:
 
 
 def _strip_step_numbers(entries: list[tuple[int, str]]) -> list[str]:
+    for number, line in entries:
+        if _EMPTY_STEP_NUMBER.fullmatch(line):
+            raise RecipeError([f"line {number}: empty instruction step"])
+
     numbered = [_STEP_NUMBER.match(line) for _, line in entries]
     if not any(numbered):
         return _strip_bullets(entries)
