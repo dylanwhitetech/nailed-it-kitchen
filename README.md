@@ -18,7 +18,8 @@ Both of us own the whole repo (see `CODEOWNERS`). Issues are unassigned; pick an
 actual prerequisites are complete.
 
 > **Contributions:** this repo is public but does not accept outside issues or PRs.
-> Submit recipes and feedback **through the app**.
+> Recipe submissions are planned through the app; feedback is Post-beta. See
+> [CONTRIBUTING.md](CONTRIBUTING.md) for the collaborator workflow.
 
 ## Architecture
 
@@ -51,7 +52,7 @@ It runs on a 3-node Raspberry Pi 4 (arm64) k3s cluster managed with Flux in
 | Popularity | Approximate detail-view counts in Postgres | Most-viewed on the landing page without accounts, visitor identities or a separate analytics service. |
 | Accounts | None in beta; Turnstile, rate limits and server validation protect submissions | A small audience is not a security boundary. Ratings, comments and feedback forms are Post-beta. |
 | Photos | Post-beta | Text-only recipes keep storage and moderation simple. |
-| Containers | Docker Desktop for local dev; multi-arch (amd64/arm64) images on GHCR; k3s runs them with containerd | The same images run on laptops, in CI and on the Pis. `docker compose` starts the whole stack locally with one command. |
+| Containers | Docker Desktop for local dev; multi-arch (amd64/arm64) images on GHCR; k3s runs them with containerd | The same images will run on laptops, in CI and on the Pis. The planned Compose stack starts locally with one command. |
 | Hosting | Helm chart → OCI on GHCR → Flux in k3s-infrastructure; Cloudflare Tunnel → ingress-nginx | GitOps: the cluster state is in git and every change is a reviewed PR. The tunnel avoids opening home ports and Cloudflare handles TLS. |
 | GitHub from the API | GitHub App `naileditkitchen-bot`; beta needs Contents and Pull requests write approval | Short-lived repository-scoped tokens. The verified issues-only setup does not yet support the planned PR workflow. |
 | Styling | Simple CSS, small React components and original NIK branding | Clean beta first; Arthur can restyle it later without a design-system dependency. |
@@ -99,8 +100,9 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
 
 > **Not implemented yet:** Compose, app containers and test commands are beta implementation work.
 > The commands below are the intended contract, not evidence that the current checkout runs.
+> `.env.example` contains only the planned, disabled submission switch; no service reads it yet.
 
-**Do this before every push.**
+**Once implemented, do this before every push.**
 
 1. Install and start **Docker Desktop**. Check it works: `docker compose version`.
 2. Copy `.env.example` to `.env` (no real secrets needed locally).
@@ -110,7 +112,7 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
    - Postgres: `localhost:5432`
 4. Run the backend, frontend and recipe checks documented with their implementation.
    The optional Post-beta `local-preflight` skill is not required.
-5. Reset the database: `docker compose down -v`
+5. Reset the database: `docker compose down -v` (deletes local volumes and their data).
 
 ## AI-first workflow
 
@@ -163,19 +165,21 @@ per session on a supported surface:
 2. **GitHub Copilot app / CLI:** open the repo, select the `naileditkitchen-main` agent (`/agent`), and give it the issue.
 3. **Cloud agent on GitHub:** on an issue marked `Copilot-ready? yes`, assign it to **Copilot** and pick `naileditkitchen-main`. It opens a PR for you to review.
 4. Always review the PR yourself. Copilot code review also comments automatically.
-## Repo layout (planned)
+## Repo layout
+
+Currently present:
 
 ```text
-frontend/        React + Vite app
-backend/         FastAPI app, Alembic migrations, recipe seeder
-recipes/         Recipe YAML + JSON Schema
 recipes/source/  Original recipes used as test fixtures
-deploy/chart/    Helm chart
-docs/            Architecture, operations, runbooks, API
+docs/            Contributor and repository setup
 guidance/        Lasting decisions (one record per decision)
-observability/   Grafana dashboards
 .github/         Copilot agents, skills, instructions, templates, workflows
 ```
+
+Planned, not present yet: `frontend/` (React/Vite), `backend/` (FastAPI,
+migrations and seeder), recipe YAML and JSON Schema under `recipes/`, and
+`deploy/chart/` (Helm chart). Their implementation will document the exact
+lint, test, build and startup commands; no placeholder Make targets are provided.
 
 ## Related repos
 
