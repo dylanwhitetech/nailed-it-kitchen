@@ -1,0 +1,151 @@
+name: Release
+
+# Trusted release automation. Runs only after CI succeeds for a push to main in this repository
+# (never for pull request input), or by manual dispatch on main. release-please owns versions and
+# tags; this workflow never rebuilds images, never overwrites a published chart, and never merges
+# a pull request. See docs/releases.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      promote_version:
+        description: Already published chart version to (re)open a promotion PR for, e.g. 0.1.0
+        required: false
+        default: ""
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release PR and tag
+    if: >-
+      github.repository == 'dylanwhitetech/nailed-it-kitchen' && (
+        (github.event_name == 'workflow_run'
+          && github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_repository.full_name == github.repository)
+        || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
+    permissions:
+      contents: write # create the release tag and GitHub Release
+      issues: write # create release-please labels
+      pull-requests: write # open and update the release PR
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
+
+  publish:
+    name: Publish chart
+    needs: release-please
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: release-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write # push the chart to this repository's GHCR packages
+    outputs:
+      version: ${{ steps.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/release/requirements.txt
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.2.3
+      - name: Install release tool dependencies
+        run: python -m pip install -r scripts/release/requirements.txt
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log Helm in to GHCR
+        env:
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Publish missing chart versions
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: python scripts/release/release_tool.py publish --repo "$REPOSITORY" --trigger-sha "$TRIGGER_SHA"
+
+  promote:
+    name: Open promotion PR
+    needs: publish
+    if: needs.publish.outputs.version != '' || inputs.promote_version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: release-promote
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read # read the published chart's metadata
+    steps:
+      - name: Require INFRA_PR_TOKEN
+        env:
+          INFRA_PR_TOKEN_SET: ${{ secrets.INFRA_PR_TOKEN != '' }}
+        run: |
+          if [ "$INFRA_PR_TOKEN_SET" != "true" ]; then
+            echo "::error::INFRA_PR_TOKEN is not set; the chart is published but NOT promoted."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Check out k3s-infrastructure
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: dylanwhitetech/k3s-infrastructure
+          ref: main
+          path: infra
+          token: ${{ secrets.INFRA_PR_TOKEN }}
+          # Kept only in this checkout so the promotion branch can be pushed.
+          persist-credentials: true
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/release/requirements.txt
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.2.3
+      - name: Install release tool dependencies
+        run: python -m pip install -r scripts/release/requirements.txt
+      - name: Log Helm in to GHCR
+        env:
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Open the promotion PR (never merged by automation)
+        env:
+          GH_TOKEN: ${{ secrets.INFRA_PR_TOKEN }}
+          VERSION: ${{ inputs.promote_version || needs.publish.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git -C infra config user.name "github-actions[bot]"
+          git -C infra config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python scripts/release/release_tool.py promote --infra-dir infra --version "$VERSION" --run-url "$RUN_URL"

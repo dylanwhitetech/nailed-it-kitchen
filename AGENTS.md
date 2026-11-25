@@ -97,8 +97,10 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
   independent of branch types (a `cicd/...` branch can hold `ci:` commits).
 - Copilot-authored commits end with
   `Co-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>`.
-- Release-please is planned, not configured. Slash-form PR titles are not Conventional Commits: the
-  human merger must set a Conventional Commit squash message on `main`.
+- release-please (`release-please-config.json`, `docs/releases.md`) versions releases from
+  Conventional Commits on `main`. Slash-form PR titles are not Conventional Commits: the human
+  merger must set a Conventional Commit squash message on `main`. Its own release PRs are titled
+  `chore(main): release X.Y.Z`; keep that title as the squash message.
 
 ## Output structure (Minto Pyramid)
 

@@ -58,9 +58,9 @@ submission issue; never apply that exception to code, configuration, or workflow
 
 ## Release and squash compatibility
 
-Release-please is planned but not configured yet. Slash-form PR titles cannot be parsed as
-Conventional Commits. Before release automation is introduced, ensure merge/squash commit
-messages on `main` preserve Conventional Commit syntax. Include an appropriate squash-message
+release-please versions releases from Conventional Commits on `main` (`docs/releases.md`).
+Slash-form PR titles cannot be parsed as Conventional Commits, so merge/squash commit messages
+on `main` must preserve Conventional Commit syntax. Include an appropriate squash-message
 suggestion in PR notes when relevant (e.g. `feat: add feature x`); the human merger must
 replace the slash-form title if GitHub defaults to it. Never merge the PR yourself.
 

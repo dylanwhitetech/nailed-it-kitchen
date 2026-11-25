@@ -10,6 +10,7 @@ another push cannot cancel its pending image publication.
 | `Backend` | PRs, `main` | Ruff lint and format check, then pytest against a disposable PostgreSQL 17 service. `TEST_DATABASE_URL` is set, so database tests run instead of being skipped. |
 | `Frontend` | PRs, `main` | `npm ci`, Oxlint (warnings fail), Vitest, then type check and production build. |
 | `Recipes` | PRs, `main` | Validates `recipes/*.yaml` against the plain recipe schema, runs the validator/fixture tests and Ruff. |
+| `Release tooling` | PRs, `main` | pytest and Ruff for `scripts/release`, the [release workflow](releases.md)'s publish/promote logic, using a fake command runner (nothing is published). |
 | `Helm chart applicability` | PRs, `main` | **Not Helm validation.** Reports "not applicable" while `deploy/chart/` does not exist, and fails once it does until real chart checks replace it. |
 | `Image build (api)`, `Image build (web)` | PRs | Buildx builds `linux/amd64` and `linux/arm64` images without pushing them. |
 | `Image publish (api)`, `Image publish (web)` | pushes to `main` | After every check above passes, builds both platforms and pushes one tag per image. |
@@ -23,7 +24,8 @@ the full commit SHA:
 - `ghcr.io/dylanwhitetech/naileditkitchen-web:<commit-sha>`
 
 No moving tag such as `latest` is pushed; deployments reference a commit SHA. Each run's summary
-records the pushed tag and digest. Builds use each Dockerfile's final stage, so any test or
+records the pushed tag and digest. Versioned releases reuse these images: the
+[release workflow](releases.md) publishes a chart that pins them by digest and never rebuilds them. Builds use each Dockerfile's final stage, so any test or
 development stage must come before the production stage. Package visibility and pull access are
 owner-controlled GHCR settings and are not changed by the workflow.
 
@@ -60,6 +62,11 @@ docker stop nik-test-pg
 .venv/bin/python recipes/validate.py
 .venv/bin/python -m pytest recipes
 .venv/bin/python -m ruff check recipes && .venv/bin/python -m ruff format --check recipes
+
+# Release tooling
+.venv/bin/python -m pip install -r scripts/release/requirements.txt
+.venv/bin/python -m pytest scripts/release
+.venv/bin/python -m ruff check scripts/release && .venv/bin/python -m ruff format --check scripts/release
 
 # Frontend
 (cd frontend && npm ci && npm run lint && npm test && npm run build)
