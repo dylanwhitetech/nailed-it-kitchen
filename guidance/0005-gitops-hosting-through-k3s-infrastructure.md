@@ -8,12 +8,12 @@ The app is intended to be served at `https://naileditkitchen.dylanlabs.dev` from
 without opening home ports, and every cluster change must be reviewable. The app is not live yet.
 
 ## Decision
-Package the app as a Helm chart in `deploy/chart/`, released as an OCI chart on GHCR. Promote releases by PR to `dylanwhitetech/k3s-infrastructure`, where Flux deploys them. Traffic flows Cloudflare Tunnel to ingress-nginx; TLS ends at Cloudflare. Releases use release-please (planned) and SHA-tagged images. Agents never mutate the cluster directly.
+Package the app as a Helm chart in `deploy/chart/`, released as an OCI chart on GHCR. Promote releases by PR to `dylanwhitetech/k3s-infrastructure`, where Flux deploys them. Traffic flows Cloudflare Tunnel to ingress-nginx; TLS ends at Cloudflare. Releases use release-please and SHA-tagged images ([0018](0018-release-please-and-trusted-promotion.md)). Agents never mutate the cluster directly.
 
 ## Consequences
 - Cluster state lives in Git and every change is a reviewed PR.
-- Once the release and promotion infrastructure exists, each release needs a promotion PR in
-  another repo; the deploy agent opens it through a session there.
+- Each release needs a promotion PR in another repo; the trusted release workflow opens it and a
+  human merges it.
 - Manual cluster fixes must be codified in k3s-infrastructure.
 
 ## References

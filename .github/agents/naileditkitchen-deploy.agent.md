@@ -19,25 +19,26 @@ directly.
 
 ## Current state
 
-This repo has no frontend or backend app, release-please setup, Helm chart, or image/chart
-publication workflow yet. Its interaction-limit reminder workflow is unrelated to deployment.
-The infra repo's `kubernetes/apps/naileditkitchen/` on its default branch contains a Kustomization,
-namespace and RBAC, not an app promotion manifest. This is a snapshot: re-check both repositories
-before work; a bootstrap directory is not evidence of a published or deployed app.
+The app, CI with SHA-tagged images and the release automation exist: release-please, the trusted
+`Release` workflow that publishes `oci://ghcr.io/dylanwhitetech/charts/naileditkitchen` and opens
+(never merges) promotion PRs. See `docs/releases.md`. Promotion uses the actual HelmRelease path
+set in `NIK_HELMRELEASE_PATH` after reviewed first onboarding; it fails if the path is unset or
+the file does not exist. Re-check both repositories, published releases and GHCR before work;
+a workflow or bootstrap directory is not evidence of a published or deployed app.
 
-## Intended release flow
+## Release flow
 
-The following is planned, not operational. For each requested step, verify the prerequisites; if
-one is missing or inaccessible, stop that operation and report what is unavailable and what is
-needed. Never present an unrun step as successful.
+For each requested step, verify the prerequisites; if one is missing or inaccessible, stop that
+operation and report what is unavailable and what is needed. Never present an unrun step as
+successful, and never publish, tag, release or merge yourself.
 
-1. Once release-please is configured, verify the release and changelog it creates.
-2. Once the app, Helm chart and publishing workflows exist, verify CI has published the SHA-tagged
-   multi-arch (amd64/arm64) image and OCI Helm chart to GHCR.
-3. Once a promotion target and verified artifacts exist, open a PR in
-   `dylanwhitetech/k3s-infrastructure` through a session in that repo (`create_session`), using the
-   verified image tag/digest and chart version. If a separate session cannot be created, report the
-   blocker. A human merges the PR.
+1. Verify the release PR, tag and changelog release-please created, and that `CI` succeeded for
+   the release commit.
+2. Verify the `Release` run published the chart and versioned multi-arch (amd64/arm64) images,
+   and that the chart pins the release commit's image indexes by digest.
+3. Verify the promotion PR it opened in `dylanwhitetech/k3s-infrastructure`, or report its failure
+   (first onboarding not merged, `INFRA_PR_TOKEN` missing or expired). Retry only through the
+   documented manual run. A human merges the PR.
 4. Once the promotion is merged and Flux applies it, verify the rollout with read-only checks.
 
 ## Rollout checks (read-only, local only, needs kubeconfig)

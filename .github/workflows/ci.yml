@@ -110,6 +110,30 @@ jobs:
           python -m ruff check recipes
           python -m ruff format --check recipes
 
+  release-tooling:
+    name: Release tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Tests the release workflow's publish/promote logic with a fake command runner; nothing is
+    # published and no registry or GitHub API is contacted.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/release/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r scripts/release/requirements.txt
+      - name: Tests
+        run: python -m pytest scripts/release
+      - name: Ruff
+        run: |
+          python -m ruff check scripts/release
+          python -m ruff format --check scripts/release
+
   chart:
     name: Helm chart applicability
     runs-on: ubuntu-latest
@@ -163,7 +187,7 @@ jobs:
     name: Image publish (${{ matrix.component }})
     # Trusted pushes to main in this repository only, after every check passes.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dylanwhitetech/nailed-it-kitchen'
-    needs: [backend, frontend, recipes, chart]
+    needs: [backend, frontend, recipes, chart, release-tooling]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
