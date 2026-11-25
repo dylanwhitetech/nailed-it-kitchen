@@ -1,9 +1,11 @@
 # Recipe submissions
 
 The backend owns every submission protection. The web app only explains when submissions are
-paused; hiding the form is never the protection. **Submissions stay unavailable until a GitHub
-publisher is configured in the application**, so enabling the switch alone does not publish
-anything.
+paused; hiding the form is never the protection. **Submissions stay unavailable until the GitHub
+App publisher is configured** ([publisher settings](github-app.md#configuration)), so enabling
+the switch alone does not publish anything. The publisher has only been tested against a mocked
+GitHub API; keep production submissions off until the
+[owner verification](github-app.md#beta-permission-gate) is recorded.
 
 ## API contract
 
@@ -30,7 +32,8 @@ The public Turnstile site key is returned only while submissions are available; 
 The server generates the slug from the title; unknown fields, including `slug`, are rejected. Text
 is normalized and validated with the shared recipe contract ([recipe format](recipe-format.md)),
 including the 20,000-character content limit. Success returns HTTP 201 with
-`{"status": "submitted", "pull_request_url": "..."}`.
+`{"status": "submitted", "pull_request_url": "..."}`, the URL of the actual pull request. An
+identical resubmission returns the same open pull request instead of opening another.
 
 Errors return `{"detail": {"code": ..., "message": ...}}`; messages are safe to show and never
 contain secrets. Checks run in this order, so cheap refusals happen before expensive work:
@@ -47,7 +50,8 @@ contain secrets. Checks run in this order, so cheap refusals happen before expen
 | 8 | 422 | `invalid_request` / `invalid_recipe` | Wrong shape or invalid recipe; `errors` lists every problem |
 | 9 | 403 | `turnstile_failed` | Token invalid, expired or already used; get a new token |
 | 10 | 503 | `turnstile_unavailable` | Verification could not complete; nothing is published |
-| 11 | 503 / 502 | `publish_failed` | Publisher failed; `retryable` says whether to try again later |
+| 11 | 409 | `recipe_conflict` | A recipe with this URL already exists or is in review; change the title |
+| 12 | 503 / 502 | `publish_failed` | Publisher failed; `retryable` says whether to try again later |
 
 Every request that reaches the rate limiter consumes a slot, even if a later check fails.
 
@@ -67,7 +71,7 @@ their contents and make submissions unavailable; they never break browsing or re
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SUBMISSIONS_ENABLED` | `false` | Server-side switch |
+| `SUBMISSIONS_ENABLED` | `true` | Server-side switch; dependencies are still required |
 | `TURNSTILE_SITE_KEY` | empty | Public widget key; required when enabled |
 | `TURNSTILE_SECRET_KEY` | empty | Secret verification key; required when enabled; never logged |
 | `TURNSTILE_TIMEOUT_SECONDS` | `5` | Siteverify timeout, above 0 and at most 30 |
@@ -105,24 +109,66 @@ published in either case.
 
 ## Turning submissions on or off
 
-Change `SUBMISSIONS_ENABLED` through Git: update the Helm values or environment in the
-deployment repository and let Flux roll out the change; manual cluster edits are reverted. The
-Helm chart is not implemented yet, so the exact values key is defined with it.
+With the Helm chart, set `submissions.enabled` in the deployment repository's values. The current
+chart defaults this value to `false` and passes it as `SUBMISSIONS_ENABLED`, overriding the API's
+default of `true`. Commit the change and let Flux roll it out; manual cluster edits are reverted.
+Keep production submissions off until the publisher, Turnstile and owner-verification gates
+above are met.
 
 - **In-flight requests:** each request reads the switch once, when it starts. A request that has
-  already passed the switch continues through validation, Turnstile and publishing; new requests
-  are refused immediately. A rollout replaces pods with graceful shutdown, which lets running
-  requests finish.
+  already passed the switch continues through validation, Turnstile and publishing. When
+  disabling submissions, old pods may still accept new requests until they are replaced;
+  updated pods refuse them. Graceful shutdown allows time for running requests to finish.
 - **What keeps working:** browsing, search, health and readiness do not depend on the switch,
   Turnstile or GitHub.
 - To pause quickly during an incident, set the switch to `false` and let the rollout complete;
   then confirm `GET /api/submissions/availability` returns `"enabled": false`.
 
+## Submission page
+
+`/submit` asks the server whether submissions are open and otherwise explains that they are
+paused or could not be checked. While open it shows three steps:
+
+1. **Copy the template.** A single-recipe text template with a Copy button. If the clipboard is
+   blocked, the page says so and the text can be selected manually.
+2. **Paste your recipe.** The pasted text is parsed in the browser with the same rules as
+   `recipes/validate.py` (see [recipe format](recipe-format.md)). Problems are listed in an
+   alert and nothing is guessed.
+3. **Review and submit.** Editable fields (one ingredient, step or note per line; blank lines
+   are dropped) sit beside a plain-text preview that shows the derived `recipes/<slug>.yaml`
+   path. Problems the server would reject are listed live. Submitting requires no problems,
+   ticking the public-publication confirmation and a Turnstile token.
+
+All user text is rendered as text, never as HTML. The Submit button is disabled while a request
+is in flight, so a double click sends one request. After every attempt the Turnstile widget is
+reset because tokens are single-use. Errors keep the recipe on screen and show the server's
+message, any field `errors` and, for `rate_limited`, the `Retry-After` wait in minutes. Success
+moves focus to a confirmation with a link to the pull request on GitHub; the link is shown only
+for a `https://github.com/<owner>/<repo>/pull/<number>` URL. Network failures and unexpected
+responses are reported as errors, never as success.
+
+The browser checks are a convenience; the server re-validates everything. Shared golden cases in
+`recipes/tests/paste_cases.json` keep the browser parser and `recipes/validate.py` in step: both
+test suites run them, so change both parsers together and regenerate the cases from the Python
+parser.
+
+## Recipe pull request body
+
+The server renders each PR body from
+[`.github/PULL_REQUEST_TEMPLATE/recipe.md`](../.github/PULL_REQUEST_TEMPLATE/recipe.md). The
+template must contain `<!-- nik:recipe -->` and `<!-- nik:checks -->` exactly once; otherwise the
+API logs the problem at startup and submissions stay unavailable. The recipe replaces the first marker as canonical paste text inside
+a code fence longer than any backtick run in the text, so submitted text cannot become Markdown,
+mentions, links or HTML. The second marker becomes the automated checks that actually passed. The
+reviewer checklist stays unchecked. The body has no `Closes #N`: app-generated recipe PRs have no
+issue. Maintainers can also open the template manually with `?template=recipe.md` on a compare URL.
+
 ## Integration points
 
-- **Publisher:** set `app.state.recipe_publisher` to an object with
-  `async publish(recipe: dict) -> str` that returns the PR URL and raises
-  `PublishError(message, retryable=...)` with a user-safe message. The recipe is already
-  validated and normalized. Duplicate-submission protection belongs to the publisher and form.
-- **Web form:** wrap it in `SubmissionAvailability` and render `TurnstileWidget` with the site key
-  it provides; send a fresh token with each attempt. See the [frontend guide](frontend.md).
+- **Publisher:** at startup the API builds the GitHub App publisher from the
+  [publisher settings](github-app.md#configuration) and the recipe PR template. Missing or invalid
+  settings leave `app.state.recipe_publisher` unset, so submissions stay unavailable. Tests may
+  set it to any object with `async publish(recipe: dict) -> str` that returns the PR URL and
+  raises `RecipeConflict` or `PublishError(message, retryable=...)` with a user-safe message.
+- **Web form:** the page wraps `SubmissionForm` in `SubmissionAvailability`, which provides the
+  Turnstile site key.

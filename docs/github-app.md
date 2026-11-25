@@ -104,6 +104,9 @@ and the human review remain the enforcement for anything outside the publisher.
   `retry-after` or reset time only if it is at most 30 seconds; otherwise the
   publisher raises an error carrying the wait. Other errors fail immediately.
 - The caller supplies the complete Markdown PR body; the publisher sends it verbatim.
+  The API renders it from the recipe PR template and builds the publisher at startup only when
+  these settings are complete and valid; otherwise submissions stay unavailable
+  ([submissions](submissions.md#recipe-pull-request-body)).
 
 ### Configuration
 

@@ -8,6 +8,7 @@ COPY backend backend
 COPY recipes/validate.py recipes/validate.py
 COPY recipes/schema recipes/schema
 COPY recipes/*.yaml recipes/
+COPY .github/PULL_REQUEST_TEMPLATE/recipe.md .github/PULL_REQUEST_TEMPLATE/recipe.md
 
 USER 10001
 EXPOSE 8000

@@ -21,7 +21,7 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      SUBMISSIONS_ENABLED: ${SUBMISSIONS_ENABLED:-false}
+      SUBMISSIONS_ENABLED: ${SUBMISSIONS_ENABLED:-true}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?Use the local test key from .env.example}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?Use the local test key from .env.example}
     # Every start migrates and seeds; failure exits before a healthy API can appear.
@@ -94,7 +94,9 @@ services:
   frontend-checks:
     build:
       context: frontend
-      target: build
+      target: checks
+      additional_contexts:
+        recipe-tests: ./recipes/tests
     profiles: ["checks"]
     command: ["sh", "-c", "npm run lint && npm run typecheck && npm test && npm run build"]
 

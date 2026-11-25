@@ -8,8 +8,8 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
 ## Before you start
 
 - **Issue first.** Software/configuration changes map to a GitHub issue. Create one with the
-  `gh-issue-drafter` skill. The planned app-generated, recipe-content-only PR flow is the narrow
-  exception: it uses the dedicated recipe review template without a synthetic submission issue.
+  `gh-issue-drafter` skill. The app-generated, recipe-content-only PR flow is the narrow
+  exception: it uses `.github/PULL_REQUEST_TEMPLATE/recipe.md` without a synthetic submission issue.
 - **Check guidance first.** Before a new scope of work, read `guidance/README.md` and the records
   related to the work. Legacy `[Sxx]` IDs and phase labels are navigation, not execution order;
   follow actual prerequisites and native dependencies, and work in parallel when nothing blocks.
@@ -22,7 +22,7 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
    `local-preflight` skill once it exists). For documentation-only changes, run the available
    documentation/customization checks; never claim unavailable application or Docker checks passed.
 2. **Software PRs** use the `gh-pr-drafter` skill, the PR template, and `Closes #N`.
-   App-generated recipe-content-only PRs use the dedicated recipe template once implemented;
+   App-generated recipe-content-only PRs use the recipe review template instead;
    never extend that exception to code, configuration, or workflow changes.
 3. **Never merge to `main`.** A human from CODEOWNERS approves and merges; agents never merge.
 4. **Do not disclose secrets, sensitive personal data, or private host details** in code, issues,
@@ -89,7 +89,7 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
   Use the GitHub issue number (not `S12`), lowercase kebab-case, no spaces, underscores, or
   empty/consecutive hyphens. The PR title matches a conforming branch. Session-managed branches are
   not renamed; their PR titles still follow the convention.
-  The planned app-generated recipe-content-only flow uses server-generated branch/PR names and its
+  The app-generated recipe-content-only flow uses server-generated branch/PR names and its
   dedicated review template instead; it must not accept user-chosen branches, paths, or workflows.
 - Commits follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
   `<type>[scope][!]: <imperative description>` (`feat`, `fix`, `docs`, `refactor`, `test`, `build`,

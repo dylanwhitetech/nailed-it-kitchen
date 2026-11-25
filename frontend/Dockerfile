@@ -8,6 +8,10 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+# Docker Compose checks only: the parser tests read the golden cases shared with recipes/validate.py.
+FROM build AS checks
+COPY --from=recipe-tests paste_cases.json /recipes/tests/paste_cases.json
+
 FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html

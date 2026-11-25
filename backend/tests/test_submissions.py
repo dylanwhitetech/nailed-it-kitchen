@@ -14,6 +14,7 @@ from backend.app import submissions as submissions_module
 from backend.app.submissions import (
     MAX_REQUEST_BYTES,
     PublishError,
+    RecipeConflict,
     SubmissionRateLimiter,
     TurnstileVerifier,
     _contains_markup,
@@ -113,8 +114,21 @@ def padded_body(size):
 # Availability and the server-side switch
 
 
-def test_submissions_default_off_and_refuse_before_reading_or_writing(app, monkeypatch):
+def test_submissions_default_on_with_protections(app, monkeypatch):
     monkeypatch.delenv("SUBMISSIONS_ENABLED")
+    with client_for(app) as client:
+        assert client.get("/api/submissions/availability").json() == {
+            "enabled": True,
+            "turnstile_site_key": TEST_SITE_KEY,
+        }
+        response = post_json(client, payload())
+        assert response.status_code == 201
+    assert len(app.state.recipe_publisher.calls) == 1
+    assert len(app.state.turnstile_verifier.calls) == 1
+
+
+def test_submissions_can_be_disabled_before_reading_or_writing(app, monkeypatch):
+    monkeypatch.setenv("SUBMISSIONS_ENABLED", "false")
     with client_for(app) as client:
         assert client.get("/api/submissions/availability").json() == {
             "enabled": False,
@@ -132,6 +146,7 @@ def test_submissions_default_off_and_refuse_before_reading_or_writing(app, monke
     ("env", "publisher"),
     [
         ({"SUBMISSIONS_ENABLED": "false"}, True),
+        ({"SUBMISSIONS_ENABLED": "invalid"}, True),
         ({"TURNSTILE_SECRET_KEY": ""}, True),
         ({"TURNSTILE_SITE_KEY": ""}, True),
         ({"TRUSTED_PROXY_CIDRS": "not-a-network"}, True),
@@ -140,6 +155,7 @@ def test_submissions_default_off_and_refuse_before_reading_or_writing(app, monke
     ],
 )
 def test_unavailable_when_disabled_or_misconfigured(app, monkeypatch, env, publisher):
+    monkeypatch.delenv("SUBMISSIONS_ENABLED")
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     if not publisher:
@@ -657,4 +673,14 @@ def test_publish_errors_are_explicit(client, app, monkeypatch, retryable, status
         "code": "publish_failed",
         "message": "GitHub is unavailable.",
         "retryable": retryable,
+    }
+
+
+def test_slug_conflict_is_a_409_that_asks_for_a_new_title(client, app):
+    app.state.recipe_publisher = FakePublisher(RecipeConflict("Change the title."))
+    response = post_json(client, payload())
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "code": "recipe_conflict",
+        "message": "Change the title.",
     }
