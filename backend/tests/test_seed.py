@@ -28,16 +28,33 @@ def rows(engine):
         }
 
 
-def test_seed_source_recipes_is_idempotent(migrated_db, recipe_dir):
+@pytest.mark.parametrize("additional_recipe", [False, True])
+def test_seed_source_recipes_is_idempotent(migrated_db, recipe_dir, additional_recipe):
     from backend.app.seed import seed_recipes
-    from recipes.validate import validate_file
+    from recipes.validate import dump_recipe_yaml, validate_file
 
+    if additional_recipe:
+        recipe = {
+            "slug": "seeder-regression-soup",
+            "title": "Seeder Regression Soup",
+            "ingredients": ["1 cup water", "1 carrot"],
+            "instructions": ["Slice the carrot.", "Simmer in the water."],
+            "source": "Test recipe",
+            "notes": ["Serve warm."],
+        }
+        (recipe_dir / f"{recipe['slug']}.yaml").write_text(
+            dump_recipe_yaml(recipe), encoding="utf-8"
+        )
+
+    expected_recipes = {
+        path.stem: validate_file(path) for path in recipe_dir.glob("*.yaml")
+    }
     seed_recipes(migrated_db, recipe_dir)
     first = rows(migrated_db)
-    assert set(first) == {"cast-iron-pizza-dough", "pizza-stone-dough"}
-    for path in recipe_dir.glob("*.yaml"):
-        expected = validate_file(path)
-        actual = first[path.stem]
+    assert {"cast-iron-pizza-dough", "pizza-stone-dough"} <= set(first)
+    assert set(first) == set(expected_recipes)
+    for slug, expected in expected_recipes.items():
+        actual = first[slug]
         for name in ("title", "ingredients", "instructions", "notes"):
             assert actual[name] == expected.get(name)
         assert actual["source"] == expected.get("source")
