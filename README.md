@@ -47,7 +47,7 @@ It runs on a 3-node Raspberry Pi 4 (arm64) k3s cluster managed with Flux in
 | Backend | FastAPI (Python 3.12), Ruff, pytest | Typed and fast, generates OpenAPI docs automatically, and Python keeps the API simple. Ruff and pytest are the standard fast lint/test tools. |
 | Database | PostgreSQL via CloudNativePG, SQLAlchemy + Alembic | Store plain recipes and durable view counts with built-in keyword search. Later fields use ordinary migrations rather than speculative tables. |
 | DB storage | `local-path` volume pinned to one node + nightly `pg_dump` to NFS | Running Postgres directly on NFS risks corruption. Local disk is safe and fast; the nightly dump on the NFS share is the backup. |
-| Recipe format | Reviewed YAML: slug, title, ingredient text lines and ordered instruction text steps | A small JSON Schema keeps storage, submissions and rendering consistent. No grid/DAG model in beta. |
+| Recipe format | Reviewed YAML: slug, title, ingredient text lines and ordered instruction text steps, plus optional plain-text source and notes ([format](docs/recipe-format.md)) | A small JSON Schema keeps storage, submissions and rendering consistent. No grid/DAG model in beta. |
 | Recipe submissions | Paste template → editable preview → protected API → one recipe PR → CI → human merge | Deterministic parsing, no AI provider or intermediate issue. GitHub supplies review and history. |
 | Popularity | Approximate detail-view counts in Postgres | Most-viewed on the landing page without accounts, visitor identities or a separate analytics service. |
 | Accounts | None in beta; Turnstile, rate limits and server validation protect submissions | A small audience is not a security boundary. Ratings, comments and feedback forms are Post-beta. |
@@ -60,7 +60,8 @@ It runs on a 3-node Raspberry Pi 4 (arm64) k3s cluster managed with Flux in
 
 ## How recipe submission works
 
-This is the agreed beta contract, not an already implemented form:
+This is the agreed beta contract; the recipe format, validator and paste extraction rules exist
+([recipe format](docs/recipe-format.md)), the submission form and API do not yet:
 
 1. Paste one recipe using the template below. Deterministic parsing produces an editable preview.
 2. Confirm the preview after the form warns that the submission will be public on GitHub.
@@ -80,6 +81,9 @@ Instructions
 1. First cooking instruction.
 2. Second cooking instruction.
 ```
+
+An optional `Source:` line after the title and an optional `Notes` section after the instructions
+are also accepted.
 
 The planned server-side switch defaults submissions off until configured and verified. Disabling
 submissions leaves browsing/search available. Requests are limited to 32 KiB and recipe content
@@ -110,7 +114,8 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
    - Web: http://localhost:8080
    - API: http://localhost:8000 (docs at http://localhost:8000/api/docs)
    - Postgres: `localhost:5432`
-4. Run the backend, frontend and recipe checks documented with their implementation.
+4. Run the backend, frontend and recipe checks documented with their implementation. Recipe checks
+   (Python only, no Docker): see [Validate recipes locally](docs/recipe-format.md#validate-recipes-locally).
    The optional Post-beta `local-preflight` skill is not required.
 5. Reset the database: `docker compose down -v` (deletes local volumes and their data).
 
@@ -170,14 +175,16 @@ per session on a supported surface:
 Currently present:
 
 ```text
+recipes/*.yaml   Reviewed plain-text recipes (docs/recipe-format.md)
+recipes/schema/  Recipe JSON Schema; recipes/validate.py validates and extracts
 recipes/source/  Original recipes used as test fixtures
-docs/            Contributor and repository setup
+docs/            Contributor, repository setup and recipe format
 guidance/        Lasting decisions (one record per decision)
 .github/         Copilot agents, skills, instructions, templates, workflows
 ```
 
 Planned, not present yet: `frontend/` (React/Vite), `backend/` (FastAPI,
-migrations and seeder), recipe YAML and JSON Schema under `recipes/`, and
+migrations and seeder), and
 `deploy/chart/` (Helm chart). Their implementation will document the exact
 lint, test, build and startup commands; no placeholder Make targets are provided.
 
