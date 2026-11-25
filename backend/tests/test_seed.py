@@ -170,6 +170,31 @@ def test_invalid_files_are_rejected_before_touching_database(recipe_dir, invalid
         seed_recipes(UntouchedEngine(), recipe_dir)
 
 
+def test_unpaired_surrogate_is_filename_qualified_before_touching_database(recipe_dir):
+    from backend.app.seed import seed_recipes
+    from recipes.validate import RecipeError
+
+    class UntouchedEngine:
+        def begin(self):
+            pytest.fail(
+                "the database must not be touched before all files are validated"
+            )
+
+    path = recipe_dir / "zzz-invalid.yaml"
+    path.write_text(
+        "slug: zzz-invalid\ntitle: Invalid text\ningredients: [water]\n"
+        'instructions: ["Cook \\uD800"]\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RecipeError) as exc_info:
+        seed_recipes(UntouchedEngine(), recipe_dir)
+
+    assert exc_info.value.errors == [
+        f"{path}: instructions[0]: contains a surrogate code point"
+    ]
+
+
 def test_invalid_input_is_atomic_and_removed_files_are_not_deleted(
     migrated_db, recipe_dir
 ):
