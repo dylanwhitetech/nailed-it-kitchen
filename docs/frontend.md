@@ -31,7 +31,7 @@ ingress routes `/api` to the backend.
 Compose mounts `nginx.local.conf` over the production config to proxy `/api/*` to `api:8000`,
 preserving the API prefix. This override is local-only; it does not change the production image.
 From the repository root, `docker compose --profile checks run --build --rm frontend-checks`
-runs lint, type checks, tests and the production build using the image's Node build stage.
+runs lint, type checks, tests and the production build using the image's Node environment.
 
 ## Pages and routes
 
