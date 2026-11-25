@@ -35,6 +35,29 @@ describe("RecipeBrowser", () => {
     expect(second.searchParams.get("limit")).toBe("20");
   });
 
+  it("keeps focus in the search box when it moves during a pending page load", async () => {
+    let releasePage: (response: Response) => void = () => {
+      throw new Error("Page request was not started");
+    };
+    mockApi((url) => {
+      if (url.pathname !== "/api/recipes") return undefined;
+      if (url.searchParams.get("offset") === "0") return recipePage(titles("Apple", 20), 20);
+      return new Promise<Response>((resolve) => (releasePage = resolve));
+    });
+    const user = userEvent.setup();
+    render(<RecipeBrowser />);
+    await screen.findByRole("list", { name: "Recipes A to Z" });
+    await user.click(screen.getByRole("button", { name: "Load more recipes" }));
+    const search = screen.getByRole("searchbox", { name: "Search recipes" });
+    await user.click(search);
+    await user.type(search, "s");
+
+    releasePage(recipePage(["Zucchini bread"]));
+    expect(await screen.findByRole("link", { name: "Zucchini bread" })).toBeInTheDocument();
+    expect(search).toHaveFocus();
+    expect(search).toHaveValue("s");
+  });
+
   it("debounces keyword search, mirrors it in the URL and restarts pagination", async () => {
     const fetchMock = mockApi((url) => {
       if (url.pathname !== "/api/recipes") return undefined;

@@ -107,7 +107,7 @@ No component library or CSS framework is used; adding one needs an issue and a g
 - The recipe browser announces loading and result counts in a polite live region. Failed reads show
   an alert with the reason (unreachable, unavailable or the HTTP status) and a "Try again" button;
   they never fall back to an empty list. After "Load more recipes", focus moves to the first newly
-  loaded recipe.
+  loaded recipe unless the visitor moved focus elsewhere while loading.
 - Typing in the search box searches after a short pause (Enter searches at once). The query is kept
   in `?q=` so links and reloads keep it; a new query starts again from the first page.
 

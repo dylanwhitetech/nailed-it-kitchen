@@ -47,7 +47,7 @@ function RecipeResults({ query, onRetry }: RecipeResultsProps) {
   const [more, setMore] = useState<MoreState>({ status: "idle" });
   const moreController = useRef<AbortController | null>(null);
   const container = useRef<HTMLDivElement>(null);
-  const focusIndex = useRef<number | null>(null);
+  const paginationFocus = useRef<{ index: number; moved: boolean; ready: boolean } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,9 +67,18 @@ function RecipeResults({ query, onRetry }: RecipeResultsProps) {
   }, [query]);
 
   useEffect(() => {
-    if (focusIndex.current === null || list.status !== "ready") return;
-    container.current?.querySelectorAll<HTMLAnchorElement>(".recipe-list a")[focusIndex.current]?.focus();
-    focusIndex.current = null;
+    function trackFocus() {
+      if (paginationFocus.current) paginationFocus.current.moved = true;
+    }
+    document.addEventListener("focusin", trackFocus);
+    return () => document.removeEventListener("focusin", trackFocus);
+  }, []);
+
+  useEffect(() => {
+    const focus = paginationFocus.current;
+    if (!focus?.ready || list.status !== "ready") return;
+    paginationFocus.current = null;
+    if (!focus.moved) container.current?.querySelectorAll<HTMLAnchorElement>(".recipe-list a")[focus.index]?.focus();
   }, [list]);
 
   function loadMore() {
@@ -78,16 +87,19 @@ function RecipeResults({ query, onRetry }: RecipeResultsProps) {
     const controller = new AbortController();
     moreController.current?.abort();
     moreController.current = controller;
+    const focus = { index: loaded.length, moved: false, ready: false };
+    paginationFocus.current = focus;
     setMore({ status: "loading" });
     fetchRecipePage(query, list.nextOffset, controller.signal)
       .then((page) => {
         if (controller.signal.aborted) return;
-        focusIndex.current = loaded.length;
+        focus.ready = true;
         setList({ status: "ready", recipes: [...loaded, ...page.items], nextOffset: page.nextOffset });
         setMore({ status: "idle" });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
+        paginationFocus.current = null;
         console.error("More recipes failed to load", error);
         setMore({ status: "error", error });
       });
