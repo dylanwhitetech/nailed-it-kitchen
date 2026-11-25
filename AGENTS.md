@@ -37,6 +37,17 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
    decision (architecture, stack, deployment, constraints), create or update a `guidance/` record
    in the same PR. Supersede records rather than deleting them.
 
+## Local environment notes
+
+- Before pushing a computed ref (`<sha>:refs/heads/x`), check the SHA is a non-empty 40-hex string;
+  an empty source deletes the remote branch and closes its PR. Quote `^{tree}` in PowerShell.
+- Session branch renames do not rename the worktree directory; use the workspace path the session supplies.
+- On Windows, confirm touched text files have LF endings (`.editorconfig`) before running validation.
+- In PowerShell run venv tools as `& .\.venv\Scripts\python ...` from the active checkout, and validate
+  the backend with that venv (`backend/requirements-dev.txt`), not global Python.
+- Syntax-check the Compose nginx config alone with
+  `docker run --rm --add-host=api:127.0.0.1 --mount ... nginx -t` (`docker compose run` has no `--add-host`).
+
 ## Engineering standards
 
 - Keep code, configuration, and workflow changes in Git. Reuse existing patterns/helpers before

@@ -7,6 +7,8 @@ Metrics contain no URL, recipe, or visitor labels and reset when the process res
 Liveness does not depend on the database; readiness returns HTTP 503 when configuration or
 the database is unavailable. Recipe discovery and detail reads require the configured database
 and return HTTP 503 on database failures rather than an empty success.
+Submission guards and the submission availability endpoint are described in
+[recipe submissions](submissions.md); they never affect liveness or readiness.
 
 Set `DATABASE_URL` to a SQLAlchemy `postgresql+psycopg://` URL, supplying credentials securely
 through the environment. Do not commit credentials. With no URL, liveness still works, while
@@ -96,8 +98,11 @@ credentials. The following all run from the repository root:
 .venv/bin/python -m backend.app.seed
 .venv/bin/python -m alembic -c backend/alembic.ini downgrade base
 .venv/bin/python -m backend.app.manage
-.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
+
+Always pass `--no-proxy-headers`: the submission guards decide which proxy headers to trust (see
+[recipe submissions](submissions.md)), and Uvicorn's default rewrites the client address first.
 
 **Downgrade to base deletes the recipe table and all its data.** Only run it on a disposable
 database or as part of a deliberate recovery procedure with a tested backup. The combined
@@ -116,6 +121,23 @@ It contains the validator, schema and reviewed recipe files, runs as a non-root 
 8000, and can be built for amd64 or arm64. For the image's migration/seed job use
 `python -m backend.app.manage` as the container command with `DATABASE_URL` supplied securely.
 Compose and Helm orchestration are not implemented yet.
+
+## Recipe PR publisher
+
+`backend/app/github_publisher.py` turns one validated recipe into one new
+`recipes/<slug>.yaml` file on a server-generated branch and opens a PR for human review.
+It is a library for the submission endpoint, not a public route. Callers must apply
+Turnstile, rate limits, size limits and the submissions switch first, then call
+`RecipePublisher.from_settings().publish(recipe, pr_body=markdown)` with the complete
+Markdown PR body rendered from the recipe PR template. Repeating a call with the same
+recipe returns the same open PR. Configuration, permissions, retries and diagnostics are
+documented in [github-app.md](github-app.md). Tests use a mocked GitHub API and need no
+credentials.
+
+The submission integration owns template rendering and its async adapter: invoke this
+blocking library in a worker thread, return `PublishResult.url`, and translate typed
+`PublisherError` failures into the endpoint's safe error/retry contract. Installing that
+adapter is separate from this library; an unconfigured endpoint must remain unavailable.
 
 ## Content synchronization and migrations
 

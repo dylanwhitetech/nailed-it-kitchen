@@ -70,19 +70,19 @@ services with `docker compose up --build`, and runs the documented tests.
 The README's `docker compose down -v` reset **deletes local volumes and their data**;
 use it only when you intend to reset the local database.
 
-### Turnstile configuration when implemented
+### Turnstile configuration
 
 The public production site key for the `naileditkitchen` widget is
 `0x4AAAAAAGRU0eFMd1cnYD4J`. Chart configuration is planned.
 
-For local development, use Cloudflare's visible, always-pass test site key
-`1x00000000000000000000AA` and always-pass test secret
+For local development, set `TURNSTILE_SITE_KEY` to Cloudflare's visible, always-pass test site key
+`1x00000000000000000000AA` and `TURNSTILE_SECRET_KEY` to the always-pass test secret
 `1x0000000000000000000000000000000AA`, as documented in
 [Cloudflare's testing guide](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 These public test keys are not production credentials. Test site keys produce dummy
 tokens that require a test secret; production secrets reject them. Never use a
-production secret for local testing or put it in Git or issues. The app and its
-configuration names are not implemented yet.
+production secret for local testing or put it in Git or issues. See
+[recipe submissions](submissions.md) for all submission settings.
 
 ## 6. Work safely
 
