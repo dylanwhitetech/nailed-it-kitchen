@@ -27,6 +27,21 @@ Most-viewed uses approximate atomic detail-read counts, not unique visitors.
 List/search/health and HEAD requests are not detail views. Count on the server as
 read telemetry, not a separate unprotected public mutation endpoint.
 
+The reading API uses English `plainto_tsquery` against the existing generated GIN-indexed
+document. Empty/whitespace queries browse all; punctuation/stopword-only nonempty queries
+match nothing. All lexical terms must match, without relevance ranking. A-Z uses
+`lower(title), slug, id` and bounded offset pages (default 20, maximum 100) with a
+`next_offset` sentinel. Offsets are stable for unchanged content, not snapshots across edits.
+`/api/most-viewed` is separate from recipe slug paths, with default 5 and maximum 10 results
+ordered by views descending, slug, id. Details retain nullable plain source and ordered notes.
+
+Successful detail GETs use an atomic increment with `RETURNING` in a transaction. Responses
+are not cached; unsupported HEAD requests return 405 without counting. Retries and bots can
+inflate counts. There is no application read limiter or stored visitor identity; aggregate
+read/bot controls must be configured at the edge before public exposure, without imposing a
+browsing CAPTCHA. Local tests verify database/API behavior, not production edge thresholds.
+The complete consumer/operator contract is in [backend API](../docs/backend.md).
+
 ## Consequences
 - No grid/DAG model, structured units, tags or semantic service is needed for beta.
 - Render recipe content as text and validate it with a safe loader/serializer.

@@ -1,4 +1,4 @@
-"""FastAPI operational endpoints for the beta backend."""
+"""FastAPI recipe discovery and operational endpoints for the beta backend."""
 
 import logging
 import time
@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.config import Settings
 from backend.app.database import create_database_engine
+from backend.app.recipes import router as recipes_router
 
 logger = logging.getLogger(__name__)
 app = FastAPI(
@@ -24,6 +25,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     swagger_ui_oauth2_redirect_url="/api/docs/oauth2-redirect",
 )
+app.include_router(recipes_router)
 registry = CollectorRegistry()
 requests_total = Counter(
     "naileditkitchen_http_requests",
