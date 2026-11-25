@@ -20,9 +20,16 @@ they can be considered complete.
 | Copilot code review | `review_on_push=false`; `review_draft_pull_requests=false` (skip new-push and draft reviews; automatic reviews run on PR open/ready) | Active ruleset verified |
 | Dependabot | Vulnerability alerts enabled | Applied |
 | Secret scanning | Secret scanning and push protection enabled | Already enabled |
+| Code scanning | CodeQL default setup, `default` query suite, languages detected by GitHub (currently `actions`) | Applied 2026-11-25; read back via the code-scanning default-setup API |
 | GitHub Actions | Default `GITHUB_TOKEN` permissions are read-only; token cannot approve PR reviews; fork PR approval policy is all outside contributors; `allowed_actions=all` | Verified; action allowlisting was not requested or changed |
 
 The active ruleset retains the existing CodeQL alert rule and repository-admin bypass.
+That rule blocks merges until CodeQL has analysed the pull request, so CodeQL default
+setup must stay enabled; without it, pull requests stay blocked unless an admin bypasses.
+Default setup scans pull requests when they are opened or pushed to. A pull request
+opened before setup was enabled needs a new push to get a scan; closing and reopening
+it does not start one. GitHub adds Python and JavaScript/TypeScript automatically when
+that code lands; confirm them in the default-setup readback.
 The bypass preserves the repository owner's break-glass access. `CODEOWNERS` names
 `@dylanwhitetech` and `@ArthurW2`; both have repository write access, so both remain
 eligible to review. No required CI status checks are configured yet; the ruleset's
@@ -125,6 +132,8 @@ repository owner can recover from a ruleset lockout.
 - [GitHub REST API: Fork PR contributor approval policy](https://docs.github.com/en/rest/actions/permissions#get-fork-pr-contributor-approval-permissions-for-a-repository)
 - [GitHub REST API: Copilot cloud agent configuration](https://docs.github.com/en/rest/copilot/copilot-cloud-agent-management#get-copilot-cloud-agent-configuration-for-a-repository)
 - [GitHub REST API: Copilot content exclusion](https://docs.github.com/en/rest/copilot/copilot-content-exclusion)
+- [GitHub REST API: Update a code scanning default setup configuration](https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanning-default-setup-configuration)
+- [GitHub Docs: Editing your configuration of default setup](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/manage-your-configuration/edit-default-setup)
 - [GitHub Docs: GITHUB_TOKEN permissions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication)
 - [GitHub Docs: Limiting interactions in your repository](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/limiting-interactions-in-your-repository)
 - [GitHub Docs: Managing rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)
