@@ -53,7 +53,7 @@ It runs on a 3-node Raspberry Pi 4 (arm64) k3s cluster managed with Flux in
 | Popularity | Approximate detail-view counts in Postgres | Most-viewed on the landing page without accounts, visitor identities or a separate analytics service. |
 | Accounts | None in beta; Turnstile, rate limits and server validation protect submissions | A small audience is not a security boundary. Ratings, comments and feedback forms are Post-beta. |
 | Photos | Post-beta | Text-only recipes keep storage and moderation simple. |
-| Containers | Docker Desktop for local dev; multi-arch (amd64/arm64) images on GHCR; k3s runs them with containerd | The same images will run on laptops, in CI and on the Pis. The planned Compose stack starts locally with one command. |
+| Containers | Docker Desktop for local dev; multi-arch (amd64/arm64) images on GHCR; k3s runs them with containerd | The same images run on laptops, in CI and on the Pis. Compose starts locally with one command. |
 | Hosting | Helm chart → OCI on GHCR → Flux in k3s-infrastructure; Cloudflare Tunnel → ingress-nginx | GitOps: the cluster state is in git and every change is a reviewed PR. The tunnel avoids opening home ports and Cloudflare handles TLS. |
 | GitHub from the API | GitHub App `naileditkitchen-bot`; beta needs Contents and Pull requests write approval | Short-lived repository-scoped tokens. The verified issues-only setup does not yet support the planned PR workflow. |
 | Styling | Simple CSS, small React components and original NIK branding | Clean beta first; Arthur can restyle it later without a design-system dependency. |
@@ -105,24 +105,48 @@ scaling, print view and AI conversion. Optional Copilot tooling does not block b
 
 ## Run & test locally (Docker)
 
-> **Not implemented yet:** Compose is beta integration work.
-> The Compose commands below are the intended contract, not evidence that the current checkout runs.
-> `.env.example` contains the disabled submission switch and Turnstile test keys; no Compose service reads it yet.
-
-**Once implemented, do this before every push.**
+**Do this before every push.** Run commands from the repository root. Docker provides Python
+and Node for the checks below; host installations are optional.
 
 1. Install and start **Docker Desktop**. Check it works: `docker compose version`.
-2. Copy `.env.example` to `.env` (no real secrets needed locally).
+2. Copy `.env.example` to `.env`: `cp .env.example .env` (PowerShell:
+   `Copy-Item .env.example .env`). The supplied values are disposable local credentials and
+   official Turnstile test keys. Keep submissions disabled; no GitHub credentials are needed.
 3. Start everything: `docker compose up --build`
    - Web: http://localhost:8080
    - API: http://localhost:8000 (docs at http://localhost:8000/api/docs)
    - Postgres: `localhost:5432`
-4. Run the [backend](docs/backend.md), [frontend](docs/frontend.md) and
-   [recipe](docs/recipe-format.md#validate-recipes-locally) checks documented with their implementation.
-   The recipe checks require Python, not Docker. [CI](docs/ci.md) runs the same checks on every
-   pull request and lists their exact local equivalents.
-   The optional Post-beta `local-preflight` skill is not required.
-5. Reset the database: `docker compose down -v` (deletes local volumes and their data).
+4. In a second terminal, check the frontend-origin API:
+   `curl --fail http://localhost:8080/api/healthz` and
+   `curl --fail http://localhost:8080/api/readyz` (PowerShell: use `curl.exe`).
+   Both return `{"status":"ok"}`. Inspect seeded recipes:
+   `docker compose exec db psql -U nik -d nik -c "SELECT slug, title FROM recipes ORDER BY slug;"`
+   (substitute your `.env` user/database if changed). Reviewed recipes are stored in Postgres;
+   use `curl --fail http://localhost:8080/api/recipes` to browse the API. See
+   [backend](docs/backend.md) for browsing and search.
+5. Run backend lint, format, tests (including real migrations/seed and recipe validation):
+   `docker compose --profile checks run --build --rm backend-checks`.
+   Run frontend lint, type check, tests and production build:
+   `docker compose --profile checks run --build --rm frontend-checks`.
+   Backend tests use a separate disposable database, not browsing data.
+   Native alternatives are in [backend](docs/backend.md), [frontend](docs/frontend.md) and
+   [recipe](docs/recipe-format.md#validate-recipes-locally) docs. [CI](docs/ci.md) runs
+   checks on every pull request and lists their local equivalents. The optional Post-beta
+   `local-preflight` skill is not required.
+6. Stop while retaining data: `docker compose --profile checks down`.
+   Start again with `docker compose up --build`; migrations and seed rerun idempotently,
+   retaining recipe identity and view counts.
+7. Reset: `docker compose --profile checks down -v` (deletes local volumes and their data).
+   `docker compose down -v` also resets the app database when no check services are running.
+   Start again with `docker compose up --build` for a fresh migration and seed.
+
+Postgres must be healthy before API startup. Each API start runs
+`python -m backend.app.manage` before starting Uvicorn; migration or seed failure exits nonzero
+and prevents the web service starting. Inspect failures with `docker compose logs api db`.
+For background startup use `docker compose up --build --wait` (waits for all health checks).
+Ports bind only to loopback; ensure 8080, 8000 and 5432 are free. Compose mounts a local-only
+nginx config to proxy `/api` through the web origin; the production image still leaves `/api`
+to ingress. Do not use these local credentials or Compose configuration for deployment.
 
 ## AI-first workflow
 
@@ -182,6 +206,7 @@ Currently present:
 ```text
 frontend/        React/Vite web app and its nginx image (see docs/frontend.md)
 backend/         FastAPI, migrations, recipe seeder and API image (see docs/backend.md)
+compose.yaml     Local web/API/Postgres stack and opt-in checks
 recipes/*.yaml   Reviewed plain-text recipes (docs/recipe-format.md)
 recipes/schema/  Recipe JSON Schema; recipes/validate.py validates and extracts
 recipes/source/  Original recipes used as test fixtures

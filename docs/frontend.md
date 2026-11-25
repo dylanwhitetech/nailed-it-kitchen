@@ -28,6 +28,11 @@ port 8080. Unknown paths fall back to `index.html` so the app can show its own n
 `/api/*` is never served by this container and returns 404 if it reaches it. In production the
 ingress routes `/api` to the backend.
 
+Compose mounts `nginx.local.conf` over the production config to proxy `/api/*` to `api:8000`,
+preserving the API prefix. This override is local-only; it does not change the production image.
+From the repository root, `docker compose --profile checks run --build --rm frontend-checks`
+runs lint, type checks, tests and the production build using the image's Node build stage.
+
 ## Where things live
 
 | Path | Owns | Change it to… |

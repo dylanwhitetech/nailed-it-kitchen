@@ -1,0 +1,102 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
+      POSTGRES_DB: ${POSTGRES_DB:?Copy .env.example to .env first}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SUBMISSIONS_ENABLED: ${SUBMISSIONS_ENABLED:-false}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?Use the local test key from .env.example}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?Use the local test key from .env.example}
+    # Every start migrates and seeds; failure exits before a healthy API can appear.
+    command:
+      - sh
+      - -c
+      - python -m backend.app.manage && exec uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/readyz', timeout=4)"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  web:
+    build:
+      context: frontend
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./frontend/nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/readyz"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # Checks use disposable PostgreSQL storage, never the browsing database.
+  test-db:
+    image: postgres:16-alpine
+    profiles: ["checks"]
+    environment:
+      POSTGRES_USER: nik_test
+      POSTGRES_PASSWORD: local_test_only
+      POSTGRES_DB: nik_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "nik_test", "-d", "nik_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend-checks:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: checks
+    profiles: ["checks"]
+    environment:
+      TEST_DATABASE_URL: postgresql+psycopg://nik_test:local_test_only@test-db:5432/nik_test
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+      PYTEST_ADDOPTS: "-o cache_dir=/tmp/pytest-cache"
+    depends_on:
+      test-db:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - python -m ruff check backend && python -m ruff format --check backend && python -m pytest backend/tests recipes && python recipes/validate.py
+
+  frontend-checks:
+    build:
+      context: frontend
+      target: build
+    profiles: ["checks"]
+    command: ["sh", "-c", "npm run lint && npm run typecheck && npm test && npm run build"]
+
+volumes:
+  postgres-data:

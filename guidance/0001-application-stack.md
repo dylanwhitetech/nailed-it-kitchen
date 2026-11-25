@@ -13,6 +13,11 @@ Use React + Vite + TypeScript (npm, Oxlint, Vitest) served by `nginx-unprivilege
 - Common tools make help, components, and agent output easy to find and review.
 - The same images run on laptops, in CI, and on the Pis.
 - Adding or replacing a framework, service, or tool needs an issue and a superseding record.
+- Local Compose waits for healthy Postgres and runs migrations/seed before each API start;
+  a failed command must prevent a healthy-looking stack. Its nginx proxy override serves
+  same-origin `/api` locally without changing production ingress-owned routing.
+- Opt-in Compose checks use development build stages and separate disposable PostgreSQL
+  storage, keeping test dependencies out of production images and tests out of browsing data.
 
 ## References
 - [README "Decisions & why"](../README.md#decisions--why)
