@@ -106,7 +106,8 @@ def recipe_connection(request: Request) -> Iterator[Connection]:
         raise HTTPException(503, "Recipe database is unavailable") from exc
 
 
-Database = Annotated[Connection, Depends(recipe_connection)]
+# Function scope commits before the response starts so commit failures still become 503s.
+Database = Annotated[Connection, Depends(recipe_connection, scope="function")]
 
 
 @router.get("/recipes", response_model=RecipePage)
