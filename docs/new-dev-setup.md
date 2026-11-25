@@ -70,7 +70,8 @@ use it only when you intend to reset the local database.
 ### Turnstile configuration
 
 The public production site key for the `naileditkitchen` widget is
-`0x4AAAAAAGRU0eFMd1cnYD4J`. Chart configuration is planned.
+`0x4AAAAAAGRU0eFMd1cnYD4J`. In the Helm chart it is `submissions.turnstile.siteKey` (see
+[deployment](deployment.md)).
 
 For local development, set `TURNSTILE_SITE_KEY` to Cloudflare's visible, always-pass test site key
 `1x00000000000000000000AA` and `TURNSTILE_SECRET_KEY` to the always-pass test secret

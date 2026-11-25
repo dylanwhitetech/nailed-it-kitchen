@@ -1,0 +1,200 @@
+# Values for the naileditkitchen chart. Secrets are never values: the chart references existing
+# Kubernetes Secrets by name, and CloudNativePG generates the database credentials.
+
+# nameOverride replaces the chart name in resource names and labels.
+nameOverride: ""
+# fullnameOverride replaces the release-derived prefix of every resource name.
+fullnameOverride: ""
+# imagePullSecrets lists existing Secrets used to pull images; the GHCR images are public.
+imagePullSecrets: []
+
+# api configures the FastAPI backend Deployment and Service (port 8000).
+api:
+  # image selects the API image; the migration/seed Job runs the same image.
+  image:
+    # repository is the API image repository without a tag or digest.
+    repository: ghcr.io/dylanwhitetech/naileditkitchen-api
+    # tag is the image tag; empty uses the chart appVersion (the release commit SHA). latest is rejected.
+    tag: ""
+    # digest pins the image (sha256:...) and takes precedence over tag.
+    digest: ""
+    # pullPolicy is the Kubernetes image pull policy.
+    pullPolicy: IfNotPresent
+  # replicas must stay 1 in beta because submission rate limits are kept in process memory.
+  replicas: 1
+  # schemaWaitSeconds bounds how long a new API pod's init container waits for the migration Job
+  # to bring the schema to this image's head before failing and being retried.
+  schemaWaitSeconds: 600
+  # resources are the API container requests and limits.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# web configures the static nginx web Deployment and Service (port 8080).
+web:
+  # image selects the web image.
+  image:
+    # repository is the web image repository without a tag or digest.
+    repository: ghcr.io/dylanwhitetech/naileditkitchen-web
+    # tag is the image tag; empty uses the chart appVersion (the release commit SHA). latest is rejected.
+    tag: ""
+    # digest pins the image (sha256:...) and takes precedence over tag.
+    digest: ""
+    # pullPolicy is the Kubernetes image pull policy.
+    pullPolicy: IfNotPresent
+  # replicas is the number of web pods.
+  replicas: 1
+  # resources are the web container requests and limits.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
+# ingress routes /api to the API and / to the web app. There is no TLS block: Cloudflare terminates TLS.
+ingress:
+  # enabled creates the Ingress.
+  enabled: true
+  # className is the IngressClass.
+  className: nginx
+  # host is the public host name.
+  host: naileditkitchen.dylanlabs.dev
+  # proxyBodySize caps request bodies at ingress-nginx; the API also rejects bodies over 32 KiB.
+  proxyBodySize: 64k
+  # annotations are added to the Ingress; snippet annotations are not allowed by cluster policy.
+  annotations: {}
+
+# database configures the CloudNativePG Cluster. Requires the CloudNativePG operator and CRDs.
+database:
+  # instances is the number of PostgreSQL instances; beta runs one.
+  instances: 1
+  # imageName is the pinned CloudNativePG PostgreSQL operand image.
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.8@sha256:065411b6de62772ab56e7267676ba512a7cbf74df97fe66ea23657d4b050d75a
+  # name is the application database and owner role; CloudNativePG generates its password.
+  name: naileditkitchen
+  # storage configures the PostgreSQL data volume.
+  storage:
+    # storageClass is the data volume StorageClass; local-path volumes are bound to one node.
+    storageClass: local-path
+    # size is the data volume size.
+    size: 5Gi
+  # nodeSelector pins the PostgreSQL pod to a node (CloudNativePG spec.affinity.nodeSelector),
+  # for example kubernetes.io/hostname: <node>.
+  nodeSelector: {}
+  # resources are the PostgreSQL container requests and limits.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+# migration configures the migration/seed Job that runs on every install and upgrade.
+migration:
+  # databaseWaitSeconds bounds how long the Job waits for PostgreSQL to accept connections.
+  databaseWaitSeconds: 600
+  # activeDeadlineSeconds fails the Job when credentials, the database, migration and seed
+  # together take longer than this.
+  activeDeadlineSeconds: 900
+  # backoffLimit is the number of retries after a failed attempt.
+  backoffLimit: 2
+  # resources are the migration container requests and limits.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# backup configures the nightly pg_dump CronJob.
+backup:
+  # enabled creates the backup CronJob and, unless existingClaim is set, its PVC.
+  enabled: true
+  # schedule is the CronJob schedule (cluster time zone unless timeZone is set).
+  schedule: "30 3 * * *"
+  # timeZone is an optional IANA time zone for schedule.
+  timeZone: ""
+  # retentionDays deletes dumps older than this many days after a successful dump.
+  retentionDays: 14
+  # activeDeadlineSeconds fails a backup run that takes longer than this.
+  activeDeadlineSeconds: 1800
+  # backoffLimit is the number of retries after a failed backup attempt.
+  backoffLimit: 1
+  # successfulJobsHistoryLimit keeps this many successful backup Jobs.
+  successfulJobsHistoryLimit: 3
+  # failedJobsHistoryLimit keeps this many failed backup Jobs for inspection and alerting.
+  failedJobsHistoryLimit: 3
+  # storage configures the backup volume.
+  storage:
+    # existingClaim uses an existing PVC instead of creating one.
+    existingClaim: ""
+    # storageClass is the StorageClass of the created PVC.
+    storageClass: ssd-nfs
+    # accessMode is the access mode of the created PVC.
+    accessMode: ReadWriteMany
+    # size is the size of the created PVC.
+    size: 5Gi
+  # resources are the backup container requests and limits.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# submissions configures public recipe submissions. Disabled by default.
+submissions:
+  # enabled sets SUBMISSIONS_ENABLED; keep false until Turnstile and publishing are configured.
+  enabled: false
+  # turnstile configures Cloudflare Turnstile verification.
+  turnstile:
+    # siteKey is the public Turnstile site key (TURNSTILE_SITE_KEY); not a secret.
+    siteKey: ""
+    # existingSecret names an existing Secret holding the Turnstile secret key; empty skips it.
+    existingSecret: naileditkitchen-turnstile
+    # secretKey is the key in existingSecret holding TURNSTILE_SECRET_KEY.
+    secretKey: secret-key
+    # timeoutSeconds is the total Turnstile siteverify budget (TURNSTILE_TIMEOUT_SECONDS).
+    timeoutSeconds: 5
+  # trustedProxyCidrs are comma-separated peer networks whose CF-Connecting-IP header is trusted
+  # (TRUSTED_PROXY_CIDRS), normally the ingress controller pod network.
+  trustedProxyCidrs: ""
+  # rateLimit configures in-process submission rate limits.
+  rateLimit:
+    # perClient is attempts per client network per window (SUBMISSION_RATE_LIMIT_PER_CLIENT).
+    perClient: 3
+    # aggregate is attempts across all clients per window (SUBMISSION_RATE_LIMIT_AGGREGATE).
+    aggregate: 20
+    # windowSeconds is the sliding window length (SUBMISSION_RATE_LIMIT_WINDOW_SECONDS).
+    windowSeconds: 3600
+
+# githubApp configures the GitHub App used to open recipe pull requests.
+githubApp:
+  # enabled passes the GitHub App settings and mounts its private key into the API.
+  enabled: false
+  # existingSecret names an existing Secret with app-id, installation-id and private-key keys.
+  existingSecret: naileditkitchen-github-app
+  # repository is the owner/name repository receiving recipe pull requests (GITHUB_REPOSITORY).
+  repository: dylanwhitetech/nailed-it-kitchen
+  # baseBranch is the pull request base branch (GITHUB_BASE_BRANCH).
+  baseBranch: main
+
+# monitoring configures optional Prometheus Operator integration.
+monitoring:
+  # serviceMonitor scrapes /api/metrics; rendered only when monitoring.coreos.com/v1 is available.
+  serviceMonitor:
+    # enabled creates the ServiceMonitor when the CRD is available.
+    enabled: true
+    # interval is the scrape interval.
+    interval: 30s
+    # labels are extra ServiceMonitor labels for Prometheus selection.
+    labels: {}

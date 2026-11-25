@@ -87,7 +87,7 @@ shows an empty list, and these checks are informative rather than enforced.
 | `Backend` | Ruff and pytest against PostgreSQL |
 | `Frontend` | Oxlint, Vitest, type check and build |
 | `Recipes` | Plain recipe schema validation and validator/fixture tests |
-| `Helm chart applicability` | Not applicable without a chart; blocks a chart that lacks Helm checks |
+| `Helm chart applicability` | Helm lint/template and kind fresh install, upgrade and backup smoke test |
 | `Image build (api)` | amd64/arm64 API image builds |
 | `Image build (web)` | amd64/arm64 web image builds |
 

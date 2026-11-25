@@ -210,13 +210,11 @@ compose.yaml     Local web/API/Postgres stack and opt-in checks
 recipes/*.yaml   Reviewed plain-text recipes (docs/recipe-format.md)
 recipes/schema/  Recipe JSON Schema; recipes/validate.py validates and extracts
 recipes/source/  Original recipes used as test fixtures
-docs/            Contributor, CI, repository setup and recipe format
+deploy/chart/    Helm chart and its kind smoke test (see docs/deployment.md)
+docs/            Contributor, CI, deployment, repository setup and recipe format
 guidance/        Lasting decisions (one record per decision)
 .github/         Copilot agents, skills, instructions, templates, workflows
 ```
-
-Planned, not present yet: `deploy/chart/` (Helm chart). Its implementation will document
-the exact deployment commands; no placeholder Make targets are provided.
 
 ## Related repos
 

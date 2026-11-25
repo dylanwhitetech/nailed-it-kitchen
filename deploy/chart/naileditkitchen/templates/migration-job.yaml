@@ -1,0 +1,46 @@
+{{- /*
+An ordinary resource, not a Helm hook: a pre-install hook cannot wait for the Cluster created by
+the same release and a post-install hook deadlocks with API pods that wait for the schema.
+Jobs are immutable, so each release revision gets a new Job; Helm removes the previous one.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "naileditkitchen.fullname" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "naileditkitchen.labels" (dict "root" . "component" "migrate") | nindent 4 }}
+spec:
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "naileditkitchen.labels" (dict "root" . "component" "migrate") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "naileditkitchen.podSecurityContext" 10001 | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "naileditkitchen.image" (dict "root" . "image" .Values.api.image) }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["python", "-m", "backend.app.manage", "--wait-for-database", {{ .Values.migration.databaseWaitSeconds | quote }}]
+          env:
+            {{- include "naileditkitchen.databaseEnv" . | nindent 12 }}
+            {{- include "naileditkitchen.lifecycleEnv" . | nindent 12 }}
+          securityContext:
+            {{- include "naileditkitchen.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

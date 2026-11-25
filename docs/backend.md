@@ -107,9 +107,18 @@ Always pass `--no-proxy-headers`: the submission guards decide which proxy heade
 **Downgrade to base deletes the recipe table and all its data.** Only run it on a disposable
 database or as part of a deliberate recovery procedure with a tested backup. The combined
 `python -m backend.app.manage` command upgrades to head and then seeds, and is the command
-used before each Compose API start and intended for the Helm migration/seed job.
-It exits nonzero on any failure.
-This does not verify production migration ordering, readiness, or deployment behavior.
+used before each Compose API start. It exits nonzero on any failure. The Helm chart's
+migration/seed Job runs it as `python -m backend.app.manage --wait-for-database SECONDS`, which
+first waits (bounded) for PostgreSQL, holds a PostgreSQL advisory lock while migrating and
+seeding, and skips both with a warning when the database schema is newer than the image (a
+rollback). Helm supplies paired `LIFECYCLE_INSTALLATION_ID` and `LIFECYCLE_REVISION` environment
+variables so the Job records completion for the specific installation and revision.
+`python -m backend.app.manage wait-for-schema --timeout SECONDS` exits 0 once the schema is at or
+beyond the image's head and, when these variables are present, that completion marker exists. It
+is the API pods' init container and checks Kubernetes Job completion for the active revision,
+preventing stale markers from bypassing a rollback Job. Both commands exit 1 with a message on
+timeout. Without the paired variables, existing Compose behavior is unchanged. See
+[deployment](deployment.md) for the ordering.
 
 Database integration tests require `TEST_DATABASE_URL` pointing to a **dedicated disposable
 PostgreSQL database**. Those tests create and drop tables; never use a shared or production
@@ -122,7 +131,7 @@ It contains the validator, schema and reviewed recipe files, runs as a non-root 
 8000, and can be built for amd64 or arm64. For the image's migration/seed job use
 `python -m backend.app.manage` as the container command with `DATABASE_URL` supplied securely.
 Compose runs this command before Uvicorn after Postgres is healthy; failure prevents API/web
-readiness. Helm orchestration is not implemented yet. For Docker-only lint and tests use
+readiness. The Helm chart runs the same image as its migration/seed Job. For Docker-only lint and tests use
 `docker compose --profile checks run --build --rm backend-checks` from the repository root
 after copying `.env.example` to `.env`. This includes the recipe tests and validator and starts
 a separate disposable PostgreSQL test service. Stop it with `docker compose --profile checks down`.

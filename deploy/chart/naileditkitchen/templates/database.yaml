@@ -1,0 +1,27 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "naileditkitchen.dbCluster" . }}
+  labels:
+    {{- include "naileditkitchen.labels" (dict "root" . "component" "database") | nindent 4 }}
+  annotations:
+    # Uninstalling the release must never delete the database.
+    helm.sh/resource-policy: keep
+spec:
+  instances: {{ .Values.database.instances }}
+  imageName: {{ .Values.database.imageName }}
+  # CloudNativePG creates the <cluster>-app Secret with a generated password for this owner.
+  bootstrap:
+    initdb:
+      database: {{ .Values.database.name }}
+      owner: {{ .Values.database.name }}
+  storage:
+    storageClass: {{ .Values.database.storage.storageClass }}
+    size: {{ .Values.database.storage.size }}
+  {{- with .Values.database.nodeSelector }}
+  affinity:
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  resources:
+    {{- toYaml .Values.database.resources | nindent 4 }}

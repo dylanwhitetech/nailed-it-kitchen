@@ -61,7 +61,7 @@ What did we choose?
 | [0015-submission-protection.md](0015-submission-protection.md) | Default-off switch, size caps, trusted proxies, rate limits, fail-closed Turnstile | `backend/app/submissions.py`, `frontend/**`, `docs/submissions.md` |
 | [0016-idempotent-recipe-pr-publisher.md](0016-idempotent-recipe-pr-publisher.md) | Per-slug atomic content reservation, no overwrites, scoped tokens and the PR body interface | `backend/app/github_publisher.py`, `docs/github-app.md` |
 | [0017-early-ci-and-sha-tagged-images.md](0017-early-ci-and-sha-tagged-images.md) | PR CI before the chart; SHA-tagged multi-arch GHCR images; least-privilege workflows | `.github/workflows/**`, `docs/ci.md`, `.github/rulesets/**` |
-
+| [0020-hookless-chart-lifecycle-and-backups.md](0020-hookless-chart-lifecycle-and-backups.md) | Hookless migration/seed ordering, CNPG credentials, verified pg_dump backups, kind chart CI | `deploy/chart/**`, `backend/app/manage.py`, `docs/deployment.md` |
 ## References
 
 - Source: format adapted from

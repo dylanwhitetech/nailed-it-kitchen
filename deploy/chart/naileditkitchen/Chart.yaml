@@ -1,0 +1,11 @@
+apiVersion: v2
+name: naileditkitchen
+description: Nailed It Kitchen web app and API with a CloudNativePG database, migration/seed Job and nightly pg_dump backups.
+type: application
+version: 0.1.0 # x-release-please-version
+# Release publishing replaces appVersion with the full commit SHA of the published images.
+# "unreleased" makes rendering fail unless image tags or digests are set explicitly.
+appVersion: "unreleased"
+home: https://github.com/dylanwhitetech/nailed-it-kitchen
+sources:
+  - https://github.com/dylanwhitetech/nailed-it-kitchen

@@ -21,6 +21,18 @@ class Base(DeclarativeBase):
     """Metadata for Alembic and the application."""
 
 
+class LifecycleCompletion(Base):
+    """A completed Helm migration/seed run for one installation and revision."""
+
+    __tablename__ = "lifecycle_completions"
+    __table_args__ = (
+        CheckConstraint("revision > 0", name="ck_lifecycle_revision_positive"),
+    )
+
+    installation_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+
 SEARCH_EXPRESSION = (
     "to_tsvector('english'::regconfig, title) || "
     """jsonb_to_tsvector('english'::regconfig, ingredients, '["string"]'::jsonb) || """
