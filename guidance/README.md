@@ -58,10 +58,11 @@ What did we choose?
 | [0012-beta-recipe-pr-permissions.md](0012-beta-recipe-pr-permissions.md) | Planned minimum PR permissions and explicit owner approval gate | `backend/**`, `docs/github-app.md`, secret references |
 | [0013-simple-beta-frontend.md](0013-simple-beta-frontend.md) | Simple CSS and easily restyled components; NIK branding | `frontend/**`, `docs/frontend.md` |
 | [0014-beta-dependency-and-security-checks.md](0014-beta-dependency-and-security-checks.md) | Dependabot, dependency review, pinned least-privilege workflows, CodeQL default setup | `.github/dependabot.yml`, `.github/workflows/**`, `docs/repo-settings.md` |
-| [0015-submission-protection.md](0015-submission-protection.md) | Default-off switch, size caps, trusted proxies, rate limits, fail-closed Turnstile | `backend/app/submissions.py`, `frontend/**`, `docs/submissions.md` |
+| [0015-submission-protection.md](0015-submission-protection.md) | Submission protections; switch default superseded by 0021 | `backend/app/submissions.py`, `frontend/**`, `docs/submissions.md` |
 | [0016-idempotent-recipe-pr-publisher.md](0016-idempotent-recipe-pr-publisher.md) | Per-slug atomic content reservation, no overwrites, scoped tokens and the PR body interface | `backend/app/github_publisher.py`, `docs/github-app.md` |
 | [0017-early-ci-and-sha-tagged-images.md](0017-early-ci-and-sha-tagged-images.md) | PR CI before the chart; SHA-tagged multi-arch GHCR images; least-privilege workflows | `.github/workflows/**`, `docs/ci.md`, `.github/rulesets/**` |
 | [0019-recipe-pr-template-and-paste-contract.md](0019-recipe-pr-template-and-paste-contract.md) | Marker-based recipe PR template, fenced recipe text, shared paste golden cases, 409 conflicts | `.github/PULL_REQUEST_TEMPLATE/recipe.md`, `backend/app/recipe_pr.py`, `frontend/src/submission/**`, `recipes/tests/paste_cases.json` |
+| [0021-default-on-submission-switch.md](0021-default-on-submission-switch.md) | API and local submission switch defaults on; protections remain fail-closed | `backend/app/submissions.py`, `compose.yaml`, `docs/submissions.md` |
 
 ## References
 

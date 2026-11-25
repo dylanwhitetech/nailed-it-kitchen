@@ -1,7 +1,7 @@
 # 0015: Beta submission protection and off switch
 
 ## Status
-Accepted
+Superseded by [0021](0021-default-on-submission-switch.md); its other protection controls remain in force.
 
 ## Context
 Beta has no accounts ([0006](0006-no-accounts-in-v1.md)) and turns public submissions into

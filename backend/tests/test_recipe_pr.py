@@ -87,7 +87,7 @@ def test_invalid_or_partial_app_settings_fail_closed(monkeypatch, key_file, capl
     assert key_file.read_text(encoding="utf-8").splitlines()[1] not in caplog.text
 
 
-def test_lifespan_wires_configured_publisher_but_submissions_stay_off(
+def test_lifespan_wires_configured_publisher_but_requires_turnstile(
     monkeypatch, key_file
 ):
     from backend.app.main import app

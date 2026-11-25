@@ -2,7 +2,7 @@
 
 Every control runs on the server, in this order, before any GitHub write:
 
-1. Availability: ``SUBMISSIONS_ENABLED`` (default off), valid submission configuration and a
+1. Availability: ``SUBMISSIONS_ENABLED`` (default on), valid submission configuration and a
    configured recipe publisher. Disabled requests are refused before the body is read.
 2. Cheap request checks: JSON content type and a declared ``Content-Length`` within 32 KiB.
 3. Client identity from the TCP peer, or ``CF-Connecting-IP`` only from trusted proxy CIDRs.
@@ -64,7 +64,7 @@ class SubmissionSettings(BaseSettings):
     """Submission configuration, kept separate so invalid values never affect readiness.
 
     Attributes:
-        submissions_enabled: Server-side switch; defaults off.
+        submissions_enabled: Server-side switch; defaults on.
         turnstile_site_key: Public widget key returned to the UI.
         turnstile_secret_key: Server-side verification secret; never logged or returned.
         turnstile_timeout_seconds: Total budget for one siteverify call.
@@ -76,7 +76,7 @@ class SubmissionSettings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    submissions_enabled: bool = False
+    submissions_enabled: bool = True
     turnstile_site_key: str = ""
     turnstile_secret_key: SecretStr = SecretStr("")
     turnstile_timeout_seconds: float = Field(default=5.0, gt=0, le=30)

@@ -71,7 +71,7 @@ their contents and make submissions unavailable; they never break browsing or re
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SUBMISSIONS_ENABLED` | `false` | Server-side switch |
+| `SUBMISSIONS_ENABLED` | `true` | Server-side switch; dependencies are still required |
 | `TURNSTILE_SITE_KEY` | empty | Public widget key; required when enabled |
 | `TURNSTILE_SECRET_KEY` | empty | Secret verification key; required when enabled; never logged |
 | `TURNSTILE_TIMEOUT_SECONDS` | `5` | Siteverify timeout, above 0 and at most 30 |
@@ -109,10 +109,11 @@ published in either case.
 
 ## Turning submissions on or off
 
-With the Helm chart, set `submissions.enabled` (default `false`) in the deployment repository's
-values. The chart maps it to `SUBMISSIONS_ENABLED` in the API. Commit the change and let Flux roll
-it out; manual cluster edits are reverted. Keep submissions off until the publisher, Turnstile and
-owner-verification gates above are met.
+With the Helm chart, set `submissions.enabled` in the deployment repository's values. The current
+chart defaults this value to `false` and passes it as `SUBMISSIONS_ENABLED`, overriding the API's
+default of `true`. Commit the change and let Flux roll it out; manual cluster edits are reverted.
+Keep production submissions off until the publisher, Turnstile and owner-verification gates
+above are met.
 
 - **In-flight requests:** each request reads the switch once, when it starts. A request that has
   already passed the switch continues through validation, Turnstile and publishing. When

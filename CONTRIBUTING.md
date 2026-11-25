@@ -4,7 +4,7 @@ This repository is public, but only collaborators open issues and software pull 
 The public contributes recipes through the app's submission page, which opens one recipe-only pull
 request per recipe using the [recipe review template](.github/PULL_REQUEST_TEMPLATE/recipe.md).
 Those app-generated PRs have no issue and no `Closes #N`; the exception never covers code,
-configuration or workflow changes. Submissions are off until the operators enable them.
+configuration or workflow changes. Submissions require configured publishing and verification.
 
 1. Start from an issue whose prerequisites are complete. Read the README and relevant
    `guidance/` records before changing the agreed scope or stack.

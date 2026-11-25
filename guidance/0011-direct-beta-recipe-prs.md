@@ -26,10 +26,10 @@ The server generates safe paths/branches and adds exactly one new recipe file,
 never workflows or overwrites. Recover partial/retried requests without duplicate
 PRs. The success response links the actual created PR; external failures are explicit.
 
-The server-side submissions switch defaults off until the production gates are
-verified. Helm/env configuration can disable it without breaking reading/search;
-the UI reflects server availability. Implementation must document in-flight request
-handling and the operator redeploy procedure.
+The original default-off switch decision is superseded by
+[0021](0021-default-on-submission-switch.md). Helm/env configuration can disable submissions
+without breaking reading/search; the UI reflects server availability. Implementation must
+document in-flight request handling and the operator redeploy procedure.
 
 ## Consequences
 - No issue creation, approval label, AI provider or Copilot conversion in beta.

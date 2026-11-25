@@ -19,8 +19,8 @@ Both of us own the whole repo (see `CODEOWNERS`). Issues are unassigned; pick an
 actual prerequisites are complete.
 
 > **Contributions:** this repo is public but does not accept outside issues or PRs.
-> Recipe submissions go through the app's [submission page](docs/submissions.md), which is off
-> until operators enable it; feedback is Post-beta. See
+> Recipe submissions go through the app's [submission page](docs/submissions.md) once its
+> publishing and verification dependencies are configured; feedback is Post-beta. See
 > [CONTRIBUTING.md](CONTRIBUTING.md) for the collaborator workflow.
 
 ## Architecture
@@ -88,8 +88,9 @@ Instructions
 An optional `Source:` line after the title and an optional `Notes` section after the instructions
 are also accepted.
 
-The server-side switch defaults submissions off, and submissions also stay unavailable until GitHub
-publishing is configured. Disabling submissions leaves browsing/search available. Requests are
+The API switch defaults on, but the current Helm chart overrides it to off. Submissions also stay
+unavailable until Turnstile and GitHub publishing are configured. Disabling submissions leaves
+browsing/search available. Requests are
 limited to 32 KiB and recipe content to 20,000 characters; text is validated, safely serialized and
 rendered as text, never executed. Malformed or ambiguous recipes must be corrected rather than
 guessed at. Human review still matters.
@@ -112,7 +113,7 @@ and Node for the checks below; host installations are optional.
 1. Install and start **Docker Desktop**. Check it works: `docker compose version`.
 2. Copy `.env.example` to `.env`: `cp .env.example .env` (PowerShell:
    `Copy-Item .env.example .env`). The supplied values are disposable local credentials and
-   official Turnstile test keys. Keep submissions disabled; no GitHub credentials are needed.
+   official Turnstile test keys. No GitHub credentials are needed, so publishing stays unavailable.
 3. Start everything: `docker compose up --build`
    - Web: http://localhost:8080
    - API: http://localhost:8000 (docs at http://localhost:8000/api/docs)
