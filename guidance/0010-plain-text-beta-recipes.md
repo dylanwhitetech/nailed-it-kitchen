@@ -11,7 +11,9 @@ by cooking instructions instead.
 ## Decision
 Supersede [0002](0002-recipes-as-yaml-with-json-schema.md). Keep reviewed YAML files
 as content source of truth, validated by JSON Schema. Require a slug, title, ingredient
-text lines and ordered instruction text steps. Preserve original source fixtures.
+text lines and ordered instruction text steps; allow only an optional plain-text source
+and optional plain-text notes (yield, equipment, tips) so source recipes convert without
+losing details. Preserve original source fixtures.
 
 Sync reviewed content to a minimal PostgreSQL recipe model through an idempotent
 seeder. Keep stable identity, timestamps and nonnegative durable view counts; reseeding
@@ -28,9 +30,12 @@ read telemetry, not a separate unprotected public mutation endpoint.
 - No grid/DAG model, structured units, tags or semantic service is needed for beta.
 - Render recipe content as text and validate it with a safe loader/serializer.
 - A later graph/metadata decision must preserve existing plain recipes and view counts.
-- Exact schema, parser rules and migration behavior land with their implementation.
+- The schema, safe YAML rules and deterministic paste extraction are defined in
+  [docs/recipe-format.md](../docs/recipe-format.md); persistence and migration behavior
+  land with their implementation.
 
 ## References
+- [Recipe format](../docs/recipe-format.md)
 - [Format contract](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/20)
 - [Persistence contract](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/15)
 - [Reading API](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/32)
