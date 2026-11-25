@@ -27,3 +27,4 @@ or post-beta styling research must not block basic readability and accessibility
 - [Frontend foundation](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/16)
 - [Deferred visual work](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/17)
 - [Application stack](0001-application-stack.md)
+- [Frontend guide](../docs/frontend.md)
