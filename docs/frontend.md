@@ -38,9 +38,11 @@ ingress routes `/api` to the backend.
 | `src/components/Logo.tsx` | NIK mark and text wordmark | Change the header logo |
 | `public/favicon.svg` | Browser tab icon (same mark as `Logo.tsx`) | Change the favicon |
 | `src/components/ApiStatus.tsx` | Backend health message in the footer | Change health wording |
+| `src/components/SubmissionAvailability.tsx` | Paused/unavailable submission notice; renders the form only while open | Change submission notice wording |
+| `src/components/TurnstileWidget.tsx` | Reusable Cloudflare Turnstile challenge (`siteKey`, `onToken`) | Change challenge loading |
 | `src/pages/*.tsx` | Page content only; no fetching | Change page text and structure |
 | `src/routes.tsx` | Page paths, navigation labels and order | Add or rename a top-level page |
-| `src/api/*.ts` | All HTTP calls (`apiGet`, `checkHealth`) | Change how data is fetched |
+| `src/api/*.ts` | All HTTP calls (`apiGet`, `checkHealth`, `fetchSubmissionAvailability`) | Change how data is fetched |
 
 Rule of thumb: components call functions from `src/api/`, never `fetch` directly, and styling
 never lives in `src/api/`.
@@ -65,6 +67,10 @@ No component library or CSS framework is used; adding one needs an issue and a g
 - `index.html` shows a short `<noscript>` message when JavaScript is disabled.
 - The footer announces backend health in a status region; the page stays usable when the backend
   is down.
+- The submit page announces when submissions are paused or cannot be checked. Hiding the form is a
+  courtesy only; the server enforces the switch and Turnstile. The Turnstile script loads from
+  `challenges.cloudflare.com` only when the form is shown, so any future Content Security Policy
+  must allow it.
 
 ## Logo
 

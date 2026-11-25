@@ -6,6 +6,8 @@ request counts by method/status and request-duration histogram), and `/api/docs`
 Metrics contain no URL, recipe, or visitor labels and reset when the process restarts.
 Liveness does not depend on the database; readiness returns HTTP 503 when configuration or
 the database is unavailable. Reading and searching recipes are not implemented yet.
+Submission guards and the submission availability endpoint are described in
+[recipe submissions](submissions.md); they never affect liveness or readiness.
 
 Set `DATABASE_URL` to a SQLAlchemy `postgresql+psycopg://` URL, supplying credentials securely
 through the environment. Do not commit credentials. With no URL, liveness still works, while
@@ -35,8 +37,11 @@ credentials. The following all run from the repository root:
 .venv/bin/python -m backend.app.seed
 .venv/bin/python -m alembic -c backend/alembic.ini downgrade base
 .venv/bin/python -m backend.app.manage
-.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
+
+Always pass `--no-proxy-headers`: the submission guards decide which proxy headers to trust (see
+[recipe submissions](submissions.md)), and Uvicorn's default rewrites the client address first.
 
 **Downgrade to base deletes the recipe table and all its data.** Only run it on a disposable
 database or as part of a deliberate recovery procedure with a tested backup. The combined

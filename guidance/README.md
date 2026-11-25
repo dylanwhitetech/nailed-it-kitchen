@@ -57,6 +57,7 @@ What did we choose?
 | [0011-direct-beta-recipe-prs.md](0011-direct-beta-recipe-prs.md) | Deterministic paste/preview and protected recipe-only PRs | `backend/**`, `frontend/**`, `.github/PULL_REQUEST_TEMPLATE/**` |
 | [0012-beta-recipe-pr-permissions.md](0012-beta-recipe-pr-permissions.md) | Planned minimum PR permissions and explicit owner approval gate | `backend/**`, `docs/github-app.md`, secret references |
 | [0013-simple-beta-frontend.md](0013-simple-beta-frontend.md) | Simple CSS and easily restyled components; NIK branding | `frontend/**`, `docs/frontend.md` |
+| [0015-submission-protection.md](0015-submission-protection.md) | Default-off switch, size caps, trusted proxies, rate limits, fail-closed Turnstile | `backend/app/submissions.py`, `frontend/**`, `docs/submissions.md` |
 
 ## References
 
