@@ -1,0 +1,48 @@
+# Weekly dependency updates for the manifests that exist in this repository.
+# Minor and patch updates are grouped per ecosystem; major updates stay separate PRs.
+# Docker tags that are not version-like (for example `stable-alpine`) are not updated.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories:
+      - /backend
+      - /recipes
+    schedule:
+      interval: weekly
+    groups:
+      pip-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: docker
+    directories:
+      - /backend
+      - /frontend
+    schedule:
+      interval: weekly
+    groups:
+      docker-minor-patch:
+        update-types:
+          - minor
+          - patch
