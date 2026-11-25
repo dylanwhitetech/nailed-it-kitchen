@@ -18,9 +18,9 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
-from backend.app.config import Settings
+from backend.app.config import GitHubPublisherSettings, Settings
 from backend.app.github_publisher import (
     AppCredentials,
     GitHubAPIError,
@@ -85,7 +85,13 @@ class FakeGitHub:
         self.public_key = public_key
         self.clock = clock
         self.base_files = {"recipes/existing.yaml": b"slug: existing\n"}
+        self.base_sha = "base-sha"
+        self.base_snapshots = {self.base_sha: dict(self.base_files)}
         self.branches = {}
+        self.branch_bases = {}
+        self.base_addition_after_put = None
+        self.base_addition_after_compare = None
+        self.base_addition_after_pr_lookup = None
         self.extra_compare_files = {}
         self.pulls = []
         self.tokens = {}
@@ -138,7 +144,7 @@ class FakeGitHub:
         method = request.method
 
         if method == "GET" and path == "/git/ref/heads/main":
-            return httpx.Response(200, json={"object": {"sha": "base-sha"}})
+            return httpx.Response(200, json={"object": {"sha": self.base_sha}})
         if path.startswith("/contents/"):
             file_path = path.removeprefix("/contents/")
             if method == "GET":
@@ -160,6 +166,11 @@ class FakeGitHub:
                         422, json={"message": '"sha" wasn\'t supplied.'}
                     )
                 self.branches[branch][file_path] = base64.b64decode(body["content"])
+                if self.base_addition_after_put is not None:
+                    base_path, base_content = self.base_addition_after_put
+                    self.base_files[base_path] = base_content
+                    self.advance_base()
+                    self.base_addition_after_put = None
                 return httpx.Response(201, json={"content": {"path": file_path}})
         if method == "GET" and path.startswith("/git/matching-refs/heads/"):
             prefix = path.removeprefix("/git/matching-refs/heads/")
@@ -173,22 +184,30 @@ class FakeGitHub:
             )
         if method == "POST" and path == "/git/refs":
             name = body["ref"].removeprefix("refs/heads/")
-            assert body["sha"] == "base-sha"
+            assert body["sha"] == self.base_sha
             if name in self.branches:
+                self.branch_bases.setdefault(name, body["sha"])
                 return httpx.Response(422, json={"message": "Reference already exists"})
             self.branches[name] = {}
+            self.branch_bases[name] = body["sha"]
             return httpx.Response(201, json={"ref": body["ref"]})
-        if method == "GET" and path.startswith("/compare/main..."):
-            branch = path.removeprefix("/compare/main...")
+        if method == "GET" and path.startswith("/compare/"):
+            _, branch = path.removeprefix("/compare/").split("...", 1)
             files = [
                 {"filename": name, "status": "added"} for name in self.branches[branch]
             ] + self.extra_compare_files.get(branch, [])
-            return httpx.Response(200, json={"files": files})
+            response = httpx.Response(200, json={"files": files})
+            if self.base_addition_after_compare is not None:
+                base_path, base_content = self.base_addition_after_compare
+                self.base_files[base_path] = base_content
+                self.advance_base()
+                self.base_addition_after_compare = None
+            return response
         if path == "/pulls" and method == "GET":
             params = request.url.params
             assert params["head"].startswith("owner:")
             head = params["head"].removeprefix("owner:")
-            return httpx.Response(
+            response = httpx.Response(
                 200,
                 json=[
                     pull
@@ -196,6 +215,12 @@ class FakeGitHub:
                     if pull["head"] == head and pull["state"] == params["state"]
                 ],
             )
+            if self.base_addition_after_pr_lookup is not None:
+                base_path, base_content = self.base_addition_after_pr_lookup
+                self.base_files[base_path] = base_content
+                self.advance_base()
+                self.base_addition_after_pr_lookup = None
+            return response
         if path == "/pulls" and method == "POST":
             if any(
                 p["head"] == body["head"] and p["state"] == "open" for p in self.pulls
@@ -246,7 +271,16 @@ class FakeGitHub:
     def files(self, ref):
         if ref == "main":
             return dict(self.base_files)
-        return {**self.base_files, **self.branches[ref]}
+        if ref == self.base_sha:
+            return dict(self.base_files)
+        if ref in self.base_snapshots:
+            return dict(self.base_snapshots[ref])
+        base_sha = self.branch_bases.get(ref, self.base_sha)
+        return {**self.base_snapshots[base_sha], **self.branches[ref]}
+
+    def advance_base(self):
+        self.base_sha = f"base-sha-{len(self.base_snapshots) + 1}"
+        self.base_snapshots[self.base_sha] = dict(self.base_files)
 
     def repo_writes(self):
         return [r for r in self.requests if r[0] in {"POST", "PUT", "PATCH", "DELETE"}]
@@ -353,6 +387,55 @@ def test_existing_recipe_slug_is_a_collision_and_never_overwritten(publisher, gi
 
     assert github.base_files["recipes/test-bread.yaml"] == original
     assert github.branches == {} and github.pulls == []
+
+
+def test_recipe_added_to_base_after_initial_check_is_rejected(publisher, github):
+    base_content = b"slug: test-bread\ntitle: already merged\n"
+    github.base_addition_after_put = ("recipes/test-bread.yaml", base_content)
+
+    with pytest.raises(RecipeCollisionError):
+        publisher.publish(RECIPE, pr_body=BODY)
+
+    branch = "recipe/test-bread"
+    assert github.base_files["recipes/test-bread.yaml"] == base_content
+    assert (
+        github.base_snapshots[github.branch_bases[branch]].get(
+            "recipes/test-bread.yaml"
+        )
+        is None
+    )
+    assert github.branches[branch]["recipes/test-bread.yaml"] != base_content
+    assert github.pulls == []
+
+
+def test_base_recipe_added_before_reusing_open_pr_is_rejected(publisher, github):
+    first = publisher.publish(RECIPE, pr_body=BODY)
+    base_content = b"slug: test-bread\ntitle: already merged\n"
+    github.base_addition_after_pr_lookup = ("recipes/test-bread.yaml", base_content)
+
+    with pytest.raises(RecipeCollisionError):
+        publisher.publish(RECIPE, pr_body=BODY)
+
+    assert github.base_files["recipes/test-bread.yaml"] == base_content
+    assert (
+        github.base_snapshots[github.branch_bases[first.branch]].get(
+            "recipes/test-bread.yaml"
+        )
+        is None
+    )
+    assert len(github.pulls) == 1
+
+
+def test_base_moving_during_final_validation_is_rejected(publisher, github):
+    github.base_addition_after_compare = (
+        "recipes/unrelated.yaml",
+        b"slug: unrelated\n",
+    )
+
+    with pytest.raises(PublisherConflictError, match="base branch changed"):
+        publisher.publish(RECIPE, pr_body=BODY)
+
+    assert github.pulls == []
 
 
 def test_pending_submission_with_same_slug_is_a_collision(publisher, github):
@@ -641,7 +724,7 @@ def test_credentials_tokens_and_submitted_text_never_reach_logs_or_errors(
 def test_credentials_are_read_only_from_settings_and_the_key_file(key_pair, tmp_path):
     key_file = tmp_path / "app.pem"
     key_file.write_text(key_pair[0], encoding="utf-8")
-    settings = Settings(
+    settings = GitHubPublisherSettings(
         github_app_id=APP_ID,
         github_app_installation_id=INSTALLATION_ID,
         github_app_private_key_file=key_file,
@@ -649,7 +732,7 @@ def test_credentials_are_read_only_from_settings_and_the_key_file(key_pair, tmp_
     assert AppCredentials.from_settings(settings).private_key == key_pair[0]
 
     with pytest.raises(PublisherConfigError, match="GITHUB_APP_INSTALLATION_ID"):
-        AppCredentials.from_settings(Settings(github_app_id=APP_ID))
+        AppCredentials.from_settings(GitHubPublisherSettings(github_app_id=APP_ID))
     with pytest.raises(PublisherConfigError, match="cannot read"):
         AppCredentials.from_settings(
             settings.model_copy(
@@ -659,6 +742,26 @@ def test_credentials_are_read_only_from_settings_and_the_key_file(key_pair, tmp_
     key_file.write_text("not a key", encoding="utf-8")
     with pytest.raises(PublisherConfigError, match="not an unencrypted PEM"):
         AppCredentials.from_settings(settings)
+
+    non_rsa_key = ec.generate_private_key(ec.SECP256R1()).private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    key_file.write_bytes(non_rsa_key)
+    with pytest.raises(PublisherConfigError, match="must contain an RSA private key"):
+        AppCredentials.from_settings(settings)
+
+
+def test_invalid_publisher_environment_does_not_break_shared_settings(monkeypatch):
+    monkeypatch.setenv("GITHUB_APP_ID", "not-a-number")
+
+    Settings()
+    with pytest.raises(
+        PublisherConfigError,
+        match="invalid GitHub publisher configuration: github_app_id",
+    ):
+        RecipePublisher.from_settings()
 
 
 def test_canonical_yaml_is_what_gets_published():

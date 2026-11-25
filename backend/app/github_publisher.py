@@ -45,8 +45,10 @@ import httpx
 import jwt
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from pydantic import ValidationError
 
-from backend.app.config import Settings
+from backend.app.config import GitHubPublisherSettings
 from recipes.validate import (
     RecipeError,
     dump_recipe_yaml,
@@ -125,7 +127,7 @@ class AppCredentials:
     private_key: str = field(repr=False)
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> AppCredentials:
+    def from_settings(cls, settings: GitHubPublisherSettings) -> AppCredentials:
         """Load credentials from settings and the mounted private-key file.
 
         Raises:
@@ -154,11 +156,17 @@ class AppCredentials:
                 f"cannot read GITHUB_APP_PRIVATE_KEY_FILE ({type(exc).__name__})"
             ) from None
         try:
-            serialization.load_pem_private_key(private_key.encode(), password=None)
+            loaded_key = serialization.load_pem_private_key(
+                private_key.encode(), password=None
+            )
         except (ValueError, TypeError, UnsupportedAlgorithm):
             raise PublisherConfigError(
                 "GITHUB_APP_PRIVATE_KEY_FILE is not an unencrypted PEM private key"
             ) from None
+        if not isinstance(loaded_key, RSAPrivateKey):
+            raise PublisherConfigError(
+                "GITHUB_APP_PRIVATE_KEY_FILE must contain an RSA private key"
+            )
         return cls(
             settings.github_app_id, settings.github_app_installation_id, private_key
         )
@@ -478,13 +486,24 @@ class RecipePublisher:
         self._repo_path = f"/repos/{repository}"
 
     @classmethod
-    def from_settings(cls, settings: Settings | None = None) -> RecipePublisher:
+    def from_settings(
+        cls, settings: GitHubPublisherSettings | None = None
+    ) -> RecipePublisher:
         """Build a publisher from environment settings.
 
         Raises:
             PublisherConfigError: The App credentials are missing or invalid.
         """
-        settings = settings or Settings()
+        try:
+            settings = settings or GitHubPublisherSettings()
+        except ValidationError as exc:
+            invalid_fields = sorted(
+                {str(error["loc"][0]) for error in exc.errors() if error["loc"]}
+            )
+            fields = ", ".join(invalid_fields)
+            raise PublisherConfigError(
+                f"invalid GitHub publisher configuration: {fields}"
+            ) from None
         client = GitHubClient(
             AppCredentials.from_settings(settings),
             settings.github_repository,
@@ -526,9 +545,9 @@ class RecipePublisher:
             raise RecipeCollisionError("a recipe with this slug already exists")
         self._create_branch(change, base_sha)
         self._add_file(change)
-        self._verify_single_new_file(change)
 
         existing = self._find_open_pr(change.branch)
+        self._validate_base(change)
         if existing is not None:
             logger.info("recipe PR reused for content %s", digest)
             return self._result(existing, change, created=False)
@@ -547,6 +566,7 @@ class RecipePublisher:
         if response.status_code == 422:
             existing = self._find_open_pr(change.branch)
             if existing is not None:
+                self._validate_base(change)
                 logger.info("recipe PR reused after ambiguous create for %s", digest)
                 return self._result(existing, change, created=False)
         _expect(response, "create pull request", 201)
@@ -615,12 +635,11 @@ class RecipePublisher:
             )
         _expect(response, operation, 201)
 
-    def _verify_single_new_file(self, change: RecipeChange) -> None:
+    def _verify_single_new_file(self, change: RecipeChange, base_sha: str) -> None:
         operation = "verify branch diff"
         response = self._client.request(
             "GET",
-            f"{self._repo_path}/compare/"
-            f"{_quote(self._base_branch)}...{_quote(change.branch)}",
+            f"{self._repo_path}/compare/{_quote(base_sha)}...{_quote(change.branch)}",
             operation=operation,
         )
         _expect(response, operation, 200)
@@ -631,6 +650,16 @@ class RecipePublisher:
         if files != [(change.path, "added")]:
             raise PublisherConflictError(
                 f"the submission branch does not add exactly one new {change.path}"
+            )
+
+    def _validate_base(self, change: RecipeChange) -> None:
+        base_sha = self._base_sha()
+        if self._read_file(change.path, base_sha) is not None:
+            raise RecipeCollisionError("a recipe with this slug already exists")
+        self._verify_single_new_file(change, base_sha)
+        if self._base_sha() != base_sha:
+            raise PublisherConflictError(
+                "the base branch changed during validation; retry the submission"
             )
 
     def _find_open_pr(self, branch: str) -> dict[str, Any] | None:

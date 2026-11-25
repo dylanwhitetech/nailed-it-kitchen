@@ -11,16 +11,23 @@ class Settings(BaseSettings):
 
     DATABASE_URL must use SQLAlchemy's postgresql+psycopg dialect. It may be
     absent for liveness, but readiness and database commands require it.
-
-    The GITHUB_APP_* values configure the recipe PR publisher. The private key is
-    read only from the file named by GITHUB_APP_PRIVATE_KEY_FILE (a mounted secret),
-    never from an environment value. Repository and base branch are operator
-    settings; public input can never choose them.
     """
 
     model_config = SettingsConfigDict(extra="ignore")
 
     database_url: str | None = None
+
+
+class GitHubPublisherSettings(BaseSettings):
+    """Settings validated only when constructing the recipe publisher.
+
+    The private key is read only from the file named by
+    ``GITHUB_APP_PRIVATE_KEY_FILE`` (a mounted secret), never from an environment
+    value. Repository and base branch are operator settings; public input can
+    never choose them.
+    """
+
+    model_config = SettingsConfigDict(extra="ignore")
 
     github_app_id: int | None = Field(default=None, gt=0)
     github_app_installation_id: int | None = Field(default=None, gt=0)
