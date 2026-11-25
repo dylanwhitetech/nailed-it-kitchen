@@ -94,7 +94,9 @@ services:
   frontend-checks:
     build:
       context: frontend
-      target: build
+      target: checks
+      additional_contexts:
+        recipe-tests: ./recipes/tests
     profiles: ["checks"]
     command: ["sh", "-c", "npm run lint && npm run typecheck && npm test && npm run build"]
 

@@ -19,7 +19,8 @@ Both of us own the whole repo (see `CODEOWNERS`). Issues are unassigned; pick an
 actual prerequisites are complete.
 
 > **Contributions:** this repo is public but does not accept outside issues or PRs.
-> Recipe submissions are planned through the app; feedback is Post-beta. See
+> Recipe submissions go through the app's [submission page](docs/submissions.md), which is off
+> until operators enable it; feedback is Post-beta. See
 > [CONTRIBUTING.md](CONTRIBUTING.md) for the collaborator workflow.
 
 ## Architecture

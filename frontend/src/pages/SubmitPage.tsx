@@ -1,11 +1,12 @@
 import { SubmissionAvailability } from "../components/SubmissionAvailability";
+import { SubmissionForm } from "../submission/SubmissionForm";
 
-/** Submission page shell: explains when submissions are paused. The form is added separately. */
+/** Recipe submission page: shows the paste-preview-submit form only while submissions are open. */
 export function SubmitPage() {
   return (
     <section className="page">
       <h1>Submit a recipe</h1>
-      <SubmissionAvailability>{() => <p>The recipe submission form is coming soon.</p>}</SubmissionAvailability>
+      <SubmissionAvailability>{(siteKey) => <SubmissionForm siteKey={siteKey} />}</SubmissionAvailability>
     </section>
   );
 }

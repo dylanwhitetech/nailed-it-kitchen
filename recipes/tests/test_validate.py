@@ -1,5 +1,6 @@
 """Tests for the plain-text recipe contract in ``recipes/validate.py``."""
 
+import json
 import re
 from pathlib import Path
 
@@ -391,3 +392,19 @@ def test_slugify_is_ascii_and_bounded():
     )
     assert v.slugify("Crème brûlée") == "creme-brulee"
     assert v.slugify("a " * 100) == "-".join(["a"] * 40)
+
+
+PASTE_CASES = json.loads(
+    (Path(__file__).with_name("paste_cases.json")).read_text(encoding="utf-8")
+)
+
+
+@pytest.mark.parametrize("case", PASTE_CASES, ids=[c["name"] for c in PASTE_CASES])
+def test_shared_paste_cases(case):
+    """The browser preview runs the same cases against its TypeScript parser."""
+    if "errors" in case:
+        assert paste_errors(case["text"]) == case["errors"]
+    else:
+        recipe = v.parse_paste_template(case["text"])
+        assert recipe == case["recipe"]
+        assert v.format_paste_template(recipe) == case["formatted"]

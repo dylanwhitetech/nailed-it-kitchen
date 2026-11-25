@@ -18,6 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.config import Settings
 from backend.app.database import create_database_engine
+from backend.app.recipe_pr import build_submissions_publisher
 from backend.app.recipes import RecipeDatabase
 from backend.app.recipes import router as recipes_router
 from backend.app.submissions import SubmissionRateLimiter, TurnstileVerifier
@@ -27,13 +28,24 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[dict[str, RecipeDatabase]]:
-    """Keep recipe connections pooled until this application lifespan ends."""
+async def lifespan(app: FastAPI) -> AsyncIterator[dict[str, RecipeDatabase]]:
+    """Pool recipe connections and, when configured, the recipe PR publisher.
+
+    A publisher already set on ``app.state`` (for example a test double) is kept.
+    Submissions still require ``SUBMISSIONS_ENABLED`` and Turnstile keys.
+    """
     database = RecipeDatabase()
+    created = None
+    if app.state.recipe_publisher is None:
+        created = build_submissions_publisher()
+        app.state.recipe_publisher = created
     try:
         yield {"recipe_database": database}
     finally:
         database.dispose()
+        if created is not None:
+            created.close()
+            app.state.recipe_publisher = None
 
 
 app = FastAPI(
@@ -45,7 +57,7 @@ app = FastAPI(
 )
 app.include_router(recipes_router)
 app.include_router(submissions_router)
-# The recipe PR publisher is wired in separately; until it is set, submissions stay unavailable.
+# The lifespan sets the GitHub App publisher when configured; until then submissions are unavailable.
 app.state.recipe_publisher = None
 app.state.submission_rate_limiter = SubmissionRateLimiter()
 app.state.turnstile_verifier = TurnstileVerifier()

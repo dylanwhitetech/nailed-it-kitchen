@@ -114,6 +114,13 @@ class PublishError(Exception):
         self.retryable = retryable
 
 
+class RecipeConflict(PublishError):
+    """The slug already exists or awaits review with other content; a new title is needed."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, retryable=False)
+
+
 class RecipePublisher(Protocol):
     """Creates exactly one recipe pull request; set on ``app.state.recipe_publisher``."""
 
@@ -124,6 +131,7 @@ class RecipePublisher(Protocol):
             recipe: Normalized, schema-valid recipe including the server-derived slug.
 
         Raises:
+            RecipeConflict: The slug is taken; the submitter must change the title.
             PublishError: The pull request was not created.
         """
         ...
@@ -497,6 +505,7 @@ def normalize_submission(payload: Any) -> tuple[dict[str, Any], str]:
     responses={
         400: {"description": "Malformed JSON or unidentifiable client"},
         403: {"description": "Turnstile verification failed"},
+        409: {"description": "A recipe with this slug exists or awaits review"},
         413: {"description": "Request body larger than 32 KiB"},
         415: {"description": "Content type is not application/json"},
         422: {"description": "Invalid submission; every problem is listed"},
@@ -583,6 +592,8 @@ async def submit_recipe(request: Request) -> dict[str, str]:
         )
     try:
         url = await publisher.publish(recipe)
+    except RecipeConflict as exc:
+        raise _fail(409, "recipe_conflict", exc.message) from None
     except PublishError as exc:
         logger.warning("Recipe publishing failed (retryable=%s)", exc.retryable)
         raise _fail(

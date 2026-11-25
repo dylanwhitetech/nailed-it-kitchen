@@ -14,6 +14,7 @@ from backend.app import submissions as submissions_module
 from backend.app.submissions import (
     MAX_REQUEST_BYTES,
     PublishError,
+    RecipeConflict,
     SubmissionRateLimiter,
     TurnstileVerifier,
     _contains_markup,
@@ -657,4 +658,14 @@ def test_publish_errors_are_explicit(client, app, monkeypatch, retryable, status
         "code": "publish_failed",
         "message": "GitHub is unavailable.",
         "retryable": retryable,
+    }
+
+
+def test_slug_conflict_is_a_409_that_asks_for_a_new_title(client, app):
+    app.state.recipe_publisher = FakePublisher(RecipeConflict("Change the title."))
+    response = post_json(client, payload())
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "code": "recipe_conflict",
+        "message": "Change the title.",
     }

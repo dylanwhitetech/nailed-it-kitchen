@@ -61,6 +61,7 @@ What did we choose?
 | [0015-submission-protection.md](0015-submission-protection.md) | Default-off switch, size caps, trusted proxies, rate limits, fail-closed Turnstile | `backend/app/submissions.py`, `frontend/**`, `docs/submissions.md` |
 | [0016-idempotent-recipe-pr-publisher.md](0016-idempotent-recipe-pr-publisher.md) | Per-slug atomic content reservation, no overwrites, scoped tokens and the PR body interface | `backend/app/github_publisher.py`, `docs/github-app.md` |
 | [0017-early-ci-and-sha-tagged-images.md](0017-early-ci-and-sha-tagged-images.md) | PR CI before the chart; SHA-tagged multi-arch GHCR images; least-privilege workflows | `.github/workflows/**`, `docs/ci.md`, `.github/rulesets/**` |
+| [0019-recipe-pr-template-and-paste-contract.md](0019-recipe-pr-template-and-paste-contract.md) | Marker-based recipe PR template, fenced recipe text, shared paste golden cases, 409 conflicts | `.github/PULL_REQUEST_TEMPLATE/recipe.md`, `backend/app/recipe_pr.py`, `frontend/src/submission/**`, `recipes/tests/paste_cases.json` |
 
 ## References
 
