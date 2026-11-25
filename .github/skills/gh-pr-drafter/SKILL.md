@@ -45,7 +45,9 @@ submission issue; never apply that exception to code, configuration, or workflow
 6. **PR body**: fill every section of `.github/PULL_REQUEST_TEMPLATE.md`, including `Closes #N`, the
    validation checklist, deploy impact, and the AI customization checklist (with awesome-copilot sources if relevant).
    Lead the body's first section with the outcome per the Minto output structure in `AGENTS.md`, preserving the template's exact headings.
-7. **Open it** (draft if work is incomplete):
+7. **Open it** (draft if work is incomplete). Check for unrelated uncommitted files first and get user
+   consent before temporarily stashing them. To verify review threads, query GraphQL
+   `id`, `isResolved`, `comments{nodes{databaseId body}}` (`inReplyTo` does not exist):
 
    ```sh
    git push -u origin HEAD

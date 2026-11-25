@@ -19,7 +19,7 @@ a new record and set the old one's status to `Superseded by <id>`.
 
 ## Record format
 
-File name: `NNNN-short-kebab-title.md` (next free number).
+File name: `NNNN-short-kebab-title.md` (next free number; check guidance paths in all open PRs, not only `main`).
 
 ```markdown
 # <id>: <title>
