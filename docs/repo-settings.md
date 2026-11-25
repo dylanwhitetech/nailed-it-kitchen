@@ -102,13 +102,20 @@ repository setting changed.
 
 | File | Behavior |
 | --- | --- |
-| [`.github/dependabot.yml`](../.github/dependabot.yml) | Weekly version updates for pip (`/backend`, `/recipes`), npm (`/frontend`), GitHub Actions (`/`) and Docker (`/backend`, `/frontend`). Minor and patch updates are grouped per ecosystem; major updates open separate PRs. Docker tags that are not version-like, such as `stable-alpine`, are not updated. |
+| [`.github/dependabot.yml`](../.github/dependabot.yml) | Weekly version updates for pip (`/backend`, `/recipes`), npm (`/frontend`), GitHub Actions (`/`), Docker (`/backend`, `/frontend`) and Docker Compose (`/compose.yaml`). Minor and patch updates are grouped per ecosystem; major updates open separate PRs. Docker tags that are not version-like, such as `stable-alpine`, are not updated. |
 | [`.github/workflows/dependency-review.yml`](../.github/workflows/dependency-review.yml) | Runs `actions/dependency-review-action` (pinned to a commit SHA) on pull requests to `main` and fails when a change introduces a runtime, development or unknown-scope dependency with a high or critical vulnerability. The job token has only `contents: read` and the workflow does not check out code. |
-
+| [`.github/workflows/trivy.yml`](../.github/workflows/trivy.yml) | On pushes and pull requests to `main` and weekly, builds the API and web images and uploads Trivy high/critical image findings to code scanning (`trivy-backend`, `trivy-frontend`). Actions are pinned to commit SHAs; the job token has only `contents: read` and `security-events: write`. The `main` ruleset's code-scanning rule covers CodeQL only, so Trivy findings are reported but do not block merges. |
 Dependabot version updates depend on the dependency graph, which GitHub enables for
 public repositories. The repository readback on 2026-11-25 reports Dependabot
 security updates as `disabled`; this change does not alter that setting, and
 Dependabot alerts remain enabled as recorded above.
+
+An agent-collected read-only readback at 2026-11-25 17:20 UTC (commit `a267af6`) reports
+CodeQL default setup `state=configured` with 0 results for `/language:python`,
+`/language:javascript-typescript` and `/language:actions`, 0 open Dependabot alerts,
+and 74 open Trivy alerts: 54 high in `trivy-backend`, 15 high and 5 critical in
+`trivy-frontend`. Recent `Dependency review` pull-request runs succeeded. This is
+evidence, not owner verification or triage of those findings.
 
 ## Unsupported controls and pending administrator actions
 
@@ -119,6 +126,7 @@ These settings are **not represented as applied** here:
 | Copilot custom content exclusion | Requested paths: `package-lock.json`, `**/*.lock`, `recipes/*.yaml`, and generated files | Unavailable in the current repository Settings UI, reported by the administrator; follow-up [#57](https://github.com/dylanwhitetech/nailed-it-kitchen/issues/57) |
 | Copilot cloud agent | Verify/enable repository access under Settings → Copilot → Cloud agent, subject to account eligibility | Pending UI action and eligibility check |
 | CodeQL default setup | Owner confirms Python and JavaScript/TypeScript in Settings → Code security → Code scanning and reviews their analyses; record the date and result here | Pending owner verification; API readback above is agent-collected |
+| Trivy image scanning | Decide whether to keep the Trivy workflow, which [guidance 0014](../guidance/0014-beta-dependency-and-security-checks.md) did not adopt, and record or supersede that decision; triage its open image findings | Pending owner decision and triage |
 | Required status checks | After the `dependency-review` check has run on `main` pull requests, decide whether to add it to the `main` ruleset's required checks, then re-export `.github/rulesets/main.json` | Pending owner decision; the required-check list is still empty |
 
 The collaborator-only issue-creation control is documented in GitHub's 2026
