@@ -61,8 +61,9 @@ It runs on a 3-node Raspberry Pi 4 (arm64) k3s cluster managed with Flux in
 
 ## How recipe submission works
 
-This is the agreed beta contract; the recipe format, validator and paste extraction rules exist
-([recipe format](docs/recipe-format.md)), the submission form and API do not yet:
+This is the agreed beta contract; the recipe format, validator, paste extraction rules and
+submission protections exist ([recipe format](docs/recipe-format.md),
+[recipe submissions](docs/submissions.md)); the submission form and GitHub publishing do not yet:
 
 1. Paste one recipe using the template below. Deterministic parsing produces an editable preview.
 2. Confirm the preview after the form warns that the submission will be public on GitHub.
@@ -86,10 +87,11 @@ Instructions
 An optional `Source:` line after the title and an optional `Notes` section after the instructions
 are also accepted.
 
-The planned server-side switch defaults submissions off until configured and verified. Disabling
-submissions leaves browsing/search available. Requests are limited to 32 KiB and recipe content
-to 20,000 characters; text is validated, safely serialized and rendered as text, never executed.
-Malformed or ambiguous recipes must be corrected rather than guessed at. Human review still matters.
+The server-side switch defaults submissions off, and submissions also stay unavailable until GitHub
+publishing is configured. Disabling submissions leaves browsing/search available. Requests are
+limited to 32 KiB and recipe content to 20,000 characters; text is validated, safely serialized and
+rendered as text, never executed. Malformed or ambiguous recipes must be corrected rather than
+guessed at. Human review still matters.
 
 ## Beta scope
 
@@ -119,8 +121,8 @@ and Node for the checks below; host installations are optional.
    `curl --fail http://localhost:8080/api/readyz` (PowerShell: use `curl.exe`).
    Both return `{"status":"ok"}`. Inspect seeded recipes:
    `docker compose exec db psql -U nik -d nik -c "SELECT slug, title FROM recipes ORDER BY slug;"`
-   (substitute your `.env` user/database if changed). The two reviewed pizza dough recipes
-   are stored in Postgres; browsing/search endpoints are a separate beta workstream.
+   (substitute your `.env` user/database if changed). Reviewed recipes are stored in Postgres;
+   browsing/search endpoints are a separate beta workstream.
 5. Run backend lint, format, tests (including real migrations/seed and recipe validation):
    `docker compose --profile checks run --build --rm backend-checks`.
    Run frontend lint, type check, tests and production build:

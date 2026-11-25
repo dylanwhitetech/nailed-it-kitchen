@@ -22,6 +22,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SUBMISSIONS_ENABLED: ${SUBMISSIONS_ENABLED:-false}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?Use the local test key from .env.example}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?Use the local test key from .env.example}
     # Every start migrates and seeds; failure exits before a healthy API can appear.
     command:

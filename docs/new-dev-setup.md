@@ -4,7 +4,7 @@ This guide covers access, tools, and the first steps for developing Nailed It Ki
 The repository is public, but only collaborators can contribute issues and pull requests.
 
 > **Current status:** The frontend shell, backend foundation and local Compose stack exist.
-> Recipe browsing/search and protected submissions remain beta work in progress.
+> Recipe browsing/search and the complete submission flow remain beta work in progress.
 
 ## 1. Get access
 
@@ -67,19 +67,19 @@ GitHub credentials are needed; keep submissions disabled.
 The README's `docker compose down -v` reset **deletes local volumes and their data**;
 use it only when you intend to reset the local database.
 
-### Turnstile configuration when implemented
+### Turnstile configuration
 
 The public production site key for the `naileditkitchen` widget is
 `0x4AAAAAAGRU0eFMd1cnYD4J`. Chart configuration is planned.
 
-For local development, use Cloudflare's visible, always-pass test site key
-`1x00000000000000000000AA` and always-pass test secret
+For local development, set `TURNSTILE_SITE_KEY` to Cloudflare's visible, always-pass test site key
+`1x00000000000000000000AA` and `TURNSTILE_SECRET_KEY` to the always-pass test secret
 `1x0000000000000000000000000000000AA`, as documented in
 [Cloudflare's testing guide](https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
 These public test keys are not production credentials. Test site keys produce dummy
 tokens that require a test secret; production secrets reject them. Never use a
-production secret for local testing or put it in Git or issues. `.env.example` records
-`TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`; the submission workstream will consume them.
+production secret for local testing or put it in Git or issues. `.env.example` records these
+test keys; see [recipe submissions](submissions.md) for all submission settings.
 
 ## 6. Work safely
 

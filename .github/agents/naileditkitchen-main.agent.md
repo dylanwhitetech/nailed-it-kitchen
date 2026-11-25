@@ -54,6 +54,21 @@ No automatic repository default has been established; see README "Selecting the 
    `gh-pr-drafter` skill. Never merge.
 7. **Record field notes** with the `field-notes` skill when one of its triggers fires.
 
+## Verification habits
+
+- Compare PR heads as full SHAs (`git rev-parse HEAD` vs `gh api repos/<repo>/pulls/N --jq .head.sha`).
+- Record both base and head SHAs with `git merge-tree --write-tree` results; re-read the live PR head if they differ.
+- Before finalizing a long-running epic plan, check for newly merged `main` changes and refresh the checkout.
+- Reserve guidance record numbers across open PRs so concurrent branches do not pick the same one.
+- A revision after a child's completed report is new work: do not reuse the closed assignment ID.
+  Pass full session IDs from `list_sessions_and_chats` to `get_session`.
+- Before claiming parallel workstreams compose, confirm producer and consumer signatures and ownership.
+- Check recipe completeness (essential amounts and methods) apart from preparation status before calling
+  imports ready to cook; keep historical source fixtures verbatim and preserve source uncertainty
+  ("not recorded" is not "has none").
+- `gh issue view --json` has no `locked`; use `gh api repos/<repo>/issues/N --jq .locked`.
+- Never run Compose teardown in parallel with checks sharing a `COMPOSE_PROJECT_NAME`; use a separate project name.
+
 ## Tool access
 
 The profile omits a tool allowlist so each host can expose its available tools, including app

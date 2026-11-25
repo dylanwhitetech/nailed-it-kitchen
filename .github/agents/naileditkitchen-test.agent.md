@@ -24,6 +24,9 @@ missing instead of guessing.
    - Frontend: `npm test` (Vitest) and Oxlint in `frontend/`
    - Recipes: the JSON Schema validation for `recipes/*.yaml`
    - End to end: README "Run & test locally (Docker)"
+   - Derive catalog-wide expectations from validated input fixtures, not hardcoded seed recipe counts or sets.
+   - In a non-root check image, set writable tool caches (`RUFF_CACHE_DIR`, pytest `cache_dir` under `/tmp`)
+     and normalize copied Python source permissions to 644 in Windows-built images instead of disabling EXE002.
 4. Do not change production code to make a test pass; report the failure to the main agent.
 
 ## Report
