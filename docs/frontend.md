@@ -45,9 +45,13 @@ runs lint, type checks, tests and the production build using the image's Node bu
 | `src/components/ApiStatus.tsx` | Backend health message in the footer | Change health wording |
 | `src/components/SubmissionAvailability.tsx` | Paused/unavailable submission notice; renders the form only while open | Change submission notice wording |
 | `src/components/TurnstileWidget.tsx` | Reusable Cloudflare Turnstile challenge (`siteKey`, `onToken`) | Change challenge loading |
-| `src/pages/*.tsx` | Page content only; no fetching | Change page text and structure |
-| `src/routes.tsx` | Page paths, navigation labels and order | Add or rename a top-level page |
-| `src/api/*.ts` | All HTTP calls (`apiGet`, `checkHealth`, `fetchSubmissionAvailability`) | Change how data is fetched |
+| `src/components/RecipeBrowser.tsx` | Keyword search (debounced, `?q=` in the URL) and the A-Z list with "Load more" | Change search or paging behavior |
+| `src/components/MostViewed.tsx` | Home page most-viewed section | Change the popular-recipes section |
+| `src/components/RecipeLinkList.tsx`, `LoadError.tsx` | Recipe title links; announced error with "Try again" | Change list or error wording |
+| `src/pages/*.tsx` | Page content; data comes only through `src/api/` functions | Change page text and structure |
+| `src/pages/RecipePage.tsx` | Plain recipe page at `/recipes/<slug>`: ingredients, then numbered steps, plus title/meta | Change the recipe layout |
+| `src/routes.tsx` | Page paths, navigation labels and order; `/recipes/<slug>` matching | Add or rename a top-level page |
+| `src/api/*.ts` | All HTTP calls (`apiGet`, `checkHealth`, `fetchSubmissionAvailability`, recipe reads in `recipes.ts`) | Change how data is fetched |
 
 Rule of thumb: components call functions from `src/api/`, never `fetch` directly, and styling
 never lives in `src/api/`.
@@ -72,6 +76,13 @@ No component library or CSS framework is used; adding one needs an issue and a g
 - `index.html` shows a short `<noscript>` message when JavaScript is disabled.
 - The footer announces backend health in a status region; the page stays usable when the backend
   is down.
+- Recipe text is always rendered as escaped plain text; line breaks inside an ingredient or step
+  are kept. Unknown recipe slugs show a "Recipe not found" page.
+- Loading and result counts are announced in a polite live region. Failed reads show an alert with
+  the reason (unreachable, unavailable or the HTTP status) and a "Try again" button; they never fall
+  back to an empty list. After "Load more recipes", focus moves to the first newly loaded recipe.
+- Typing in the search box searches after a short pause (Enter searches at once). The query is kept
+  in `?q=` so links and reloads keep it; a new query starts again from the first page.
 - The submit page announces when submissions are paused or cannot be checked. Hiding the form is a
   courtesy only; the server enforces the switch and Turnstile. The Turnstile script loads from
   `challenges.cloudflare.com` only when the form is shown, so any future Content Security Policy
