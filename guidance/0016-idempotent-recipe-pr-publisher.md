@@ -1,4 +1,4 @@
-# 0014: Idempotent recipe PR publisher contract
+# 0016: Idempotent recipe PR publisher contract
 
 ## Status
 Accepted
@@ -10,12 +10,12 @@ requires short-lived, minimum-permission installation tokens. The publisher need
 concrete rules for naming, collisions, retries, credentials and its caller interface.
 
 ## Decision
-- Derive the branch from the content: `recipe/<slug>/<SHA-256 prefix of canonical YAML>`.
-  The same recipe always resumes the same branch and open PR; the file is always
-  `recipes/<slug>.yaml`, added without a blob SHA so GitHub refuses an overwrite.
-- Reject a slug that exists on the base branch or has another open submission PR.
-  Branches without an open PR do not block. Verify the branch adds exactly one file
-  before opening or returning a PR.
+- Reserve one branch per slug: `recipe/<slug>`. The file is always
+  `recipes/<slug>.yaml`, added without a blob SHA so GitHub atomically refuses an
+  overwrite. Only identical canonical YAML resumes the branch and open PR.
+- Reject a slug that exists on the base branch or has different content on its
+  submission branch, whether or not a PR is open. Verify the branch adds exactly
+  one file before opening or returning a PR.
 - Request each installation token for only the configured repository with only
   Contents and Pull requests write, and refuse tokens that come back broader in
   repositories or narrower in permissions. Read the private key only from a mounted
@@ -28,9 +28,12 @@ concrete rules for naming, collisions, retries, credentials and its caller inter
 - Errors and logs carry operation, status and GitHub request ID only.
 
 ## Consequences
-- Two different submissions for the same new slug racing each other can both open
-  PRs; the second merge conflicts instead of overwriting, and review decides.
-- A closed submission leaves its branch; maintainers delete branches after closing.
+- Concurrent different-content submissions cannot both publish: GitHub's create-only
+  file operation on the shared branch selects one content without an overwrite.
+  Identical requests recover via that file and GitHub's unique open head/base PR.
+- Partial and closed submissions reserve their content until maintainers close any
+  PR and delete the branch with no publisher requests in flight. No shared database
+  lock or process-local synchronization is needed.
 - Mocked tests cannot prove real App permissions; production stays disabled until the
   owner verification in [github-app.md](../docs/github-app.md) is recorded.
 

@@ -12,9 +12,9 @@ Contract for callers (the submission endpoint):
   limits and the submissions availability switch have passed.
 * ``pr_body`` is the complete Markdown PR body, rendered by the caller from the
   recipe PR template. The publisher sends it verbatim and never interprets it.
-* Retrying the same recipe is safe: the branch name is derived from the content
-  digest, so partial or ambiguous earlier attempts are resumed and an existing open
-  PR is returned (``created=False``) instead of a duplicate.
+* Each slug has one branch. GitHub's create-only file write reserves its content
+  atomically, including across processes. Partial or ambiguous attempts with the
+  same content are resumed and an existing open PR is returned (``created=False``).
 * Every :class:`PublisherError` message is safe to log or show to an operator; it
   never contains credentials, tokens, recipe text or the PR body.
 
@@ -63,7 +63,6 @@ JWT_BACKDATE_SECONDS = 60
 JWT_LIFETIME_SECONDS = 540
 TOKEN_REFRESH_MARGIN_SECONDS = 300
 MAX_PR_BODY_CHARS = 65_536
-MAX_PENDING_BRANCHES = 20
 TRANSIENT_STATUSES = frozenset({500, 502, 503, 504})
 SECONDARY_RATE_LIMIT_WAIT_SECONDS = 60.0
 DEFAULT_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
@@ -418,7 +417,7 @@ class RecipeChange:
     Attributes:
         slug: Validated recipe slug.
         path: Fixed repository path, ``recipes/<slug>.yaml``.
-        branch: Server-generated branch, ``recipe/<slug>/<content digest prefix>``.
+        branch: Server-generated branch, ``recipe/<slug>``.
         content: Canonical safe YAML for the recipe.
     """
 
@@ -460,17 +459,16 @@ def prepare_recipe_change(recipe: Mapping[str, Any]) -> RecipeChange:
     if load_recipe_yaml(content) != dict(recipe):
         raise RecipeError(["recipe did not survive safe serialization unchanged"])
     slug = recipe["slug"]
-    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
     return RecipeChange(
         slug=slug,
         path=f"recipes/{slug}.yaml",
-        branch=f"recipe/{slug}/{digest[:16]}",
+        branch=f"recipe/{slug}",
         content=content,
     )
 
 
 class RecipePublisher:
-    """Create one recipe-file PR per distinct recipe, idempotently."""
+    """Reserve each slug for one recipe and create its PR idempotently."""
 
     def __init__(self, client: GitHubClient, repository: str, base_branch: str) -> None:
         self._client = client
@@ -511,8 +509,8 @@ class RecipePublisher:
         Raises:
             ValueError: ``pr_body`` is empty or too long.
             RecipeError: The recipe is invalid.
-            RecipeCollisionError: The slug exists on the base branch or another
-                submission for it is awaiting review.
+            RecipeCollisionError: The slug exists on the base branch or its
+                submission branch already contains different recipe content.
             PublisherConflictError: Existing branch content differs from this recipe.
             PublisherError: Any other GitHub, permission or configuration failure.
         """
@@ -521,12 +519,11 @@ class RecipePublisher:
         if len(pr_body) > MAX_PR_BODY_CHARS:
             raise ValueError(f"pr_body must be at most {MAX_PR_BODY_CHARS} characters")
         change = prepare_recipe_change(recipe)
-        digest = change.branch.rsplit("/", 1)[1]
+        digest = hashlib.sha256(change.content.encode("utf-8")).hexdigest()[:16]
 
         base_sha = self._base_sha()
         if self._read_file(change.path, self._base_branch) is not None:
             raise RecipeCollisionError("a recipe with this slug already exists")
-        self._reject_pending_submissions(change)
         self._create_branch(change, base_sha)
         self._add_file(change)
         self._verify_single_new_file(change)
@@ -582,28 +579,6 @@ class RecipePublisher:
             raise PublisherConflictError(f"{path} exists and is not a regular file")
         return base64.b64decode(data.get("content", ""))
 
-    def _reject_pending_submissions(self, change: RecipeChange) -> None:
-        operation = "list pending submissions"
-        prefix = f"heads/recipe/{change.slug}/"
-        response = self._client.request(
-            "GET", f"{self._repo_path}/git/matching-refs/{prefix}", operation=operation
-        )
-        _expect(response, operation, 200)
-        others = [
-            ref["ref"].removeprefix("refs/heads/")
-            for ref in response.json()
-            if ref["ref"] != f"refs/heads/{change.branch}"
-        ]
-        if len(others) > MAX_PENDING_BRANCHES:
-            raise RecipeCollisionError(
-                "too many submissions with this slug are pending; ask a maintainer to clean up"
-            )
-        for branch in others:
-            if self._find_open_pr(branch) is not None:
-                raise RecipeCollisionError(
-                    "another submission with this slug is awaiting review"
-                )
-
     def _create_branch(self, change: RecipeChange, base_sha: str) -> None:
         operation = "create branch"
         response = self._client.request(
@@ -635,8 +610,8 @@ class RecipePublisher:
             if self._read_file(change.path, change.branch) == expected:
                 logger.info("add recipe file: identical file already present; resuming")
                 return
-            raise PublisherConflictError(
-                "the submission branch already has a different file at the recipe path"
+            raise RecipeCollisionError(
+                "another submission has already reserved this slug with different content"
             )
         _expect(response, operation, 201)
 

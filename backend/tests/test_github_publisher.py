@@ -9,6 +9,8 @@ import base64
 import json
 import logging
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from urllib.parse import unquote
 
@@ -98,6 +100,7 @@ class FakeGitHub:
         self.token_lifetime = 3600
         self.requests = []
         self.injected = []
+        self.lock = threading.Lock()
 
     def inject(self, method, pattern, *outcomes, after=False):
         """Queue outcomes (responses or exceptions); ``after`` applies the real effect first."""
@@ -105,6 +108,10 @@ class FakeGitHub:
             self.injected.append((method, re.compile(pattern), outcome, after))
 
     def handler(self, request: httpx.Request) -> httpx.Response:
+        with self.lock:
+            return self._handle(request)
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
         path = unquote(request.url.path)
         self.requests.append((request.method, path, dict(request.url.params)))
         for index, (method, pattern, outcome, after) in enumerate(self.injected):
@@ -291,7 +298,7 @@ def test_publish_adds_exactly_one_schema_valid_file_and_opens_one_pr(publisher, 
     change = prepare_recipe_change(RECIPE)
     assert result.created
     assert result.path == "recipes/test-bread.yaml"
-    assert re.fullmatch(r"recipe/test-bread/[0-9a-f]{16}", result.branch)
+    assert result.branch == "recipe/test-bread"
     assert github.branches == {result.branch: {result.path: change.content.encode()}}
     stored = load_recipe_yaml(github.branches[result.branch][result.path])
     assert validate_recipe(stored, slug_from_filename="test-bread") == []
@@ -349,39 +356,91 @@ def test_existing_recipe_slug_is_a_collision_and_never_overwritten(publisher, gi
 
 
 def test_pending_submission_with_same_slug_is_a_collision(publisher, github):
-    github.branches["recipe/test-bread/0000000000000000"] = {
-        "recipes/test-bread.yaml": b"x"
-    }
-    github.pulls.append(
-        {"head": "recipe/test-bread/0000000000000000", "state": "open", "number": 9}
-    )
+    publisher.publish(RECIPE, pr_body=BODY)
+    original = dict(github.branches["recipe/test-bread"])
 
     with pytest.raises(RecipeCollisionError):
-        publisher.publish(RECIPE, pr_body=BODY)
+        publisher.publish({**RECIPE, "title": "Different bread"}, pr_body=BODY)
     assert len(github.pulls) == 1
+    assert github.branches["recipe/test-bread"] == original
 
 
-def test_stale_branch_without_open_pr_does_not_block_and_similar_slugs_do_not_match(
+def test_closed_submission_reserves_its_content_and_similar_slugs_do_not_collide(
     publisher, github
 ):
-    github.branches["recipe/test-bread/0000000000000000"] = {
-        "recipes/test-bread.yaml": b"x"
-    }
-    github.branches["recipe/test-bread-rolls/0000000000000000"] = {}
-    github.pulls.append(
-        {
-            "head": "recipe/test-bread-rolls/0000000000000000",
-            "state": "open",
-            "number": 1,
-        }
-    )
-
+    publisher.publish({**RECIPE, "slug": "test-bread-rolls"}, pr_body=BODY)
     result = publisher.publish(RECIPE, pr_body=BODY)
-
     assert result.created
-    assert github.branches["recipe/test-bread/0000000000000000"] == {
-        "recipes/test-bread.yaml": b"x"
-    }
+    github.pulls[-1]["state"] = "closed"
+    with pytest.raises(RecipeCollisionError):
+        publisher.publish({**RECIPE, "title": "Different bread"}, pr_body=BODY)
+    assert len(github.pulls) == 2
+
+
+@pytest.mark.parametrize("same_content", [False, True])
+@pytest.mark.parametrize("ambiguous_write", [False, True])
+def test_concurrent_submissions_reserve_one_file_and_create_at_most_one_pr(
+    make_publisher, github, monkeypatch, same_content, ambiguous_write
+):
+    original_handler = github.handler
+    file_barrier = threading.Barrier(2, timeout=5)
+    pr_barrier = threading.Barrier(2, timeout=5)
+    local = threading.local()
+
+    def concurrent_handler(request):
+        if request.method == "PUT" and not getattr(local, "wrote", False):
+            local.wrote = True
+            file_barrier.wait()
+        response = original_handler(request)
+        if (
+            same_content
+            and request.method == "GET"
+            and request.url.path.endswith("/pulls")
+            and not getattr(local, "looked_for_pr", False)
+        ):
+            local.looked_for_pr = True
+            assert response.json() == []
+            pr_barrier.wait()
+        return response
+
+    monkeypatch.setattr(github, "handler", concurrent_handler)
+    if ambiguous_write:
+        github.inject("PUT", r"/contents/", httpx.ReadTimeout("timed out"), after=True)
+    recipes = [RECIPE, RECIPE if same_content else {**RECIPE, "title": "Other bread"}]
+    publishers = [make_publisher(), make_publisher()]
+
+    def publish(index):
+        try:
+            return publishers[index].publish(recipes[index], pr_body=BODY)
+        except RecipeCollisionError as exc:
+            return exc
+        finally:
+            publishers[index].close()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(executor.map(publish, range(2)))
+
+    successes = [outcome for outcome in outcomes if not isinstance(outcome, Exception)]
+    assert len(successes) == (2 if same_content else 1)
+    assert len(github.pulls) == 1
+    assert sum(result.created for result in successes) == 1
+    winner = next(result for result in successes if result.created)
+    stored = github.branches[winner.branch]
+    assert list(stored) == [winner.path]
+    assert load_recipe_yaml(stored[winner.path]) in recipes
+    assert len(github.branches) == 1
+    assert all(result.url == winner.url for result in successes)
+
+    monkeypatch.setattr(github, "handler", original_handler)
+    retry_publisher = make_publisher()
+    try:
+        retry = retry_publisher.publish(
+            load_recipe_yaml(stored[winner.path]), pr_body=BODY
+        )
+    finally:
+        retry_publisher.close()
+    assert retry.url == winner.url and not retry.created
+    assert len(github.pulls) == 1
 
 
 def test_retrying_after_success_reuses_the_same_pr(publisher, github):
@@ -422,11 +481,11 @@ def test_ambiguous_timeouts_after_github_applied_a_write_do_not_duplicate(
     assert len(github.branches[result.branch]) == 1
 
 
-def test_branch_with_different_file_is_a_conflict_not_an_overwrite(publisher, github):
+def test_branch_with_different_file_is_a_collision_not_an_overwrite(publisher, github):
     change = prepare_recipe_change(RECIPE)
     github.branches[change.branch] = {change.path: b"slug: test-bread\ntitle: Other\n"}
 
-    with pytest.raises(PublisherConflictError):
+    with pytest.raises(RecipeCollisionError):
         publisher.publish(RECIPE, pr_body=BODY)
 
     assert (

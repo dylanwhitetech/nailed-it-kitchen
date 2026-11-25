@@ -57,7 +57,7 @@ What did we choose?
 | [0011-direct-beta-recipe-prs.md](0011-direct-beta-recipe-prs.md) | Deterministic paste/preview and protected recipe-only PRs | `backend/**`, `frontend/**`, `.github/PULL_REQUEST_TEMPLATE/**` |
 | [0012-beta-recipe-pr-permissions.md](0012-beta-recipe-pr-permissions.md) | Planned minimum PR permissions and explicit owner approval gate | `backend/**`, `docs/github-app.md`, secret references |
 | [0013-simple-beta-frontend.md](0013-simple-beta-frontend.md) | Simple CSS and easily restyled components; NIK branding | `frontend/**`, `docs/frontend.md` |
-| [0014-idempotent-recipe-pr-publisher.md](0014-idempotent-recipe-pr-publisher.md) | Content-derived branches, no overwrites, scoped tokens and the PR body interface | `backend/app/github_publisher.py`, `docs/github-app.md` |
+| [0016-idempotent-recipe-pr-publisher.md](0016-idempotent-recipe-pr-publisher.md) | Per-slug atomic content reservation, no overwrites, scoped tokens and the PR body interface | `backend/app/github_publisher.py`, `docs/github-app.md` |
 
 ## References
 

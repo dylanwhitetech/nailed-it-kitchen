@@ -75,7 +75,7 @@ issues-only setup above therefore cannot publish.
 | Call | Permission |
 | --- | --- |
 | `POST /app/installations/{id}/access_tokens` | App JWT |
-| `GET /repos/{repo}/git/ref/heads/{base}`, `git/matching-refs`, `contents`, `compare`, `GET pulls` | Contents/Pull requests read |
+| `GET /repos/{repo}/git/ref/heads/{base}`, `contents`, `compare`, `GET pulls` | Contents/Pull requests read |
 | `POST /repos/{repo}/git/refs` (new branch) | Contents write |
 | `PUT /repos/{repo}/contents/recipes/<slug>.yaml` without `sha` (add only) | Contents write |
 | `POST /repos/{repo}/pulls` | Pull requests write |
@@ -86,14 +86,17 @@ and the human review remain the enforcement for anything outside the publisher.
 
 ### Behavior
 
-- The branch is `recipe/<slug>/<16 hex digits of the canonical YAML SHA-256>` and the
+- The branch is `recipe/<slug>` and the
   file is `recipes/<slug>.yaml`; the PR title is `Add recipe: <slug>`. Public input
   cannot choose the repository, base, branch, path or title.
-- A slug already on the base branch, or another open submission PR for the same slug,
-  is rejected. Branches for that slug without an open PR do not block a submission.
-  The check is not a lock: two different submissions for the same new slug made at
-  the same moment can both open PRs. Neither overwrites anything; review picks one,
-  and the other then conflicts.
+- A slug already on the base branch is rejected. All submissions for a slug share
+  one branch; GitHub's atomic create-only file write reserves it for the first
+  content, rejecting different content without overwriting, even across processes.
+  Concurrent identical submissions reuse the file and GitHub's unique open PR for
+  the same head/base. No process-local lock is needed.
+- A partial or closed submission's branch continues to reserve that content.
+  To release a rejected slug for different content, a maintainer must close its PR
+  and delete the branch after ensuring no publisher request is still in flight.
 - Before opening the PR, the branch's diff against the base must add exactly that one
   file. A retry resumes an existing branch/file and returns the existing open PR.
 - Transport errors, timeouts and HTTP 500/502/503/504 get three attempts with short

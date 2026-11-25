@@ -68,6 +68,11 @@ recipe returns the same open PR. Configuration, permissions, retries and diagnos
 documented in [github-app.md](github-app.md). Tests use a mocked GitHub API and need no
 credentials.
 
+The submission integration owns template rendering and its async adapter: invoke this
+blocking library in a worker thread, return `PublishResult.url`, and translate typed
+`PublisherError` failures into the endpoint's safe error/retry contract. Installing that
+adapter is separate from this library; an unconfigured endpoint must remain unavailable.
+
 ## Content synchronization and migrations
 
 The seeder validates **all** `recipes/*.yaml` files against the shared recipe contract before
