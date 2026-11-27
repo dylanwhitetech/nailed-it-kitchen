@@ -45,6 +45,11 @@ submission issue; never apply that exception to code, configuration, or workflow
 6. **PR body**: fill every section of `.github/PULL_REQUEST_TEMPLATE.md`, including `Closes #N`, the
    validation checklist, deploy impact, and the AI customization checklist (with awesome-copilot sources if relevant).
    Lead the body's first section with the outcome per the Minto output structure in `AGENTS.md`, preserving the template's exact headings.
+   Use exactly one closing reference (`Closes #N`), with no extra `Fixes:`/`Resolves:` lines for the
+   same issue. Name the guidance record when the Guidance box is checked. List each validation
+   command verbatim with its result, and define any custom argument variables or temporary config
+   needed to reproduce it. Before submitting, compare the body's headings and checklist items to the
+   template (normalize CRLF to LF first).
 7. **Open it** (draft if work is incomplete). Check for unrelated uncommitted files first and get user
    consent before temporarily stashing them. To verify review threads, query GraphQL
    `id`, `isResolved`, `comments{nodes{databaseId body}}` (`inReplyTo` does not exist):
@@ -54,7 +59,14 @@ submission issue; never apply that exception to code, configuration, or workflow
    gh pr create --base main --title "feat/1234-add-feature-x" --body-file pr.md [--draft]
    ```
 
-8. **Report** the outcome first, then the PR URL. Copilot code review runs automatically when the PR opens or is marked ready.
+8. **Edit an existing PR body**: re-read the live body and the repo template first (especially after
+   context compaction; never reconstruct from memory). With the `update_pull_request` tool a title or
+   body is required, and its returned `base_sha` guards a follow-up edit; retry a conflict with the
+   returned current content. Afterwards read back the live body and verify newlines and content. In
+   PowerShell never cast `gh ... --jq .body` output (a line array) to a string, which flattens the
+   body to one line; read the JSON object's `.body` instead, e.g.
+   `(gh api repos/<repo>/pulls/N | ConvertFrom-Json).body`.
+9. **Report** the outcome first, then the PR URL. Copilot code review runs automatically when the PR opens or is marked ready.
 
 ## Release and squash compatibility
 

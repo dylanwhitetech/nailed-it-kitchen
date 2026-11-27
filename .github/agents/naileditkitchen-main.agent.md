@@ -67,6 +67,11 @@ No automatic repository default has been established; see README "Selecting the 
   imports ready to cook; keep historical source fixtures verbatim and preserve source uncertainty
   ("not recorded" is not "has none").
 - `gh issue view --json` has no `locked`; use `gh api repos/<repo>/issues/N --jq .locked`.
+- Label source/Compose defaults and Git-proposed config as defaults or proposals, not deployed or live
+  state (alert routing, feature switches, credential sources, branch-protection/merge ability inferred
+  from one rule) until an authorized readback confirms them. For cluster readbacks pass an explicit
+  verified `--context` and record the observation time; otherwise mark unverified.
+- `gh pr list --json author` reports Dependabot as `app/dependabot`; inspect `author.login` before filtering.
 - Never run Compose teardown in parallel with checks sharing a `COMPOSE_PROJECT_NAME`; use a separate project name.
 
 ## Tool access
