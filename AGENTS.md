@@ -40,9 +40,15 @@ and local test steps. `.github/copilot-instructions.md` points here. Path-specif
 ## Local environment notes
 
 - Before pushing a computed ref (`<sha>:refs/heads/x`), check the SHA is a non-empty 40-hex string;
-  an empty source deletes the remote branch and closes its PR. Quote `^{tree}` in PowerShell.
+  an empty source deletes the remote branch and closes its PR. Quote `^{tree}` and `^{commit}` in PowerShell (unquoted
+  `<sha>^{commit}` makes `git cat-file` report an unknown switch).
+- In PowerShell commit multi-line messages with `git commit -F <temp-file>` (`-F -` plus a here-string
+  is parsed as a pathspec). `Set-Content -NoNewline` may be unavailable in Windows PowerShell; write
+  LF files with the edit tool or Python.
 - Session branch renames do not rename the worktree directory; use the workspace path the session supplies.
-- On Windows, confirm touched text files have LF endings (`.editorconfig`) before running validation.
+- Check the working-tree bytes (not git index state or `core.autocrlf`, e.g. `git ls-files --eol`
+  showing `i/lf w/crlf`) of every touched file, including files Git wrote during a merge from `main`;
+  normalize to LF (`.editorconfig`), then re-run validation.
 - In PowerShell run venv tools as `& .\.venv\Scripts\python ...` from the active checkout, and validate
   the backend with that venv (`backend/requirements-dev.txt`), not global Python.
 - Syntax-check the Compose nginx config alone with
